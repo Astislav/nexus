@@ -40,6 +40,61 @@ my-app/
         └── environment.py     # extend EnvironmentInterface
 ```
 
+## Environment
+
+`EnvironmentInterface` is a [Pydantic BaseSettings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) subclass.
+Add typed fields — they are read from `.env` automatically:
+
+```python
+# app/config/environment.py
+from nexus.interfaces import EnvironmentInterface
+
+class Environment(EnvironmentInterface):
+    APP_NAME: str = "my-app"
+    DEBUG: bool = False
+    DB_URL: str = "sqlite:///data.db"
+```
+
+`.env` is passed at startup via `Root.external(".env")` (see below):
+
+```python
+env = Environment(Root.external(".env"))
+```
+
+Fields can be overridden at runtime with environment variables — Pydantic picks them up automatically.
+
+Access config anywhere in your app via the `environment` argument of `ApplicationInterface.__init__`:
+
+```python
+class Application(ApplicationInterface):
+    def __init__(self, environment: Environment, container: ContainerInterface) -> None:
+        if environment.DEBUG:
+            print("Debug mode on")
+```
+
+## Paths
+
+`Root` resolves paths correctly in both development and PyInstaller-bundled executables.
+
+```python
+from nexus import Root
+
+# next to the .exe (or cwd in dev) — user data, configs, output
+config = Root.external(".env")
+db     = Root.external("data", "app.db")
+
+# inside the bundle (or cwd in dev) — shipped assets, templates
+html   = Root.internal("templates", "report.html")
+```
+
+| Method | Dev (plain Python) | Bundled (PyInstaller) |
+|--------|--------------------|-----------------------|
+| `Root.external(...)` | `cwd / path` | `dir(exe) / path` |
+| `Root.internal(...)` | `cwd / path` | `_MEIPASS / path` |
+
+Use `external` for anything the user owns (configs, databases, output files).
+Use `internal` for assets you ship inside the bundle (templates, images, default configs).
+
 ## Add a service
 
 **1. Define an interface:**
