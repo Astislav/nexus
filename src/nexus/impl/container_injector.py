@@ -12,6 +12,7 @@ class ContainerInjector(ContainerInterface):
     def __init__(self, bindings: Mapping[Type[Any], Any]):
         self.__injector = Injector()
         self.__injector.binder.bind(Injector, to=self.__injector)
+        self.__injector.binder.bind(ContainerInterface, to=self)
 
         for cls, value in bindings.items():
             self.set(cls, value)
