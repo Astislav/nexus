@@ -17,6 +17,7 @@ if __name__ == "__main__":
 
     env = Environment(Root.external(".env"))
     container = ContainerInjector(DI_CONFIG)
+    container.set(Environment, env)
     Application(env, container).run()
 """,
     "pyproject.toml": """\
