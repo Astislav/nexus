@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nexus"
+version = "0.1.0"
+description = "Minimal Python application framework: single entry point, DI, typed config."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Astislav Bozhevolnov", email = "astislav@gmail.com" }
+]
+keywords = ["framework", "dependency-injection", "application", "bootstrap", "di"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+requires-python = ">=3.14"
+dependencies = []
+
+[project.optional-dependencies]
+injector = ["injector>=0.24.0"]
+pydantic = ["pydantic-settings>=2.13.1"]
+full     = ["injector>=0.24.0", "pydantic-settings>=2.13.1"]
+
+[project.urls]
+Repository = "https://github.com/astislav/nexus"
+
+[project.scripts]
+nexus = "nexus.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nexus"]
