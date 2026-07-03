@@ -9,7 +9,7 @@ from nexus.interfaces.environment import EnvironmentInterface
 class ApplicationInterface(ABC):
     @abstractmethod
     def __init__(
-        self, environment: EnvironmentInterface, container: ContainerInterface
+            self, environment: EnvironmentInterface, container: ContainerInterface
     ): ...
 
     @abstractmethod
