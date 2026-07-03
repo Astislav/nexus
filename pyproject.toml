@@ -21,7 +21,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "injector>=0.24.0",
+]
 
 [project.optional-dependencies]
 injector = ["injector>=0.24.0"]
