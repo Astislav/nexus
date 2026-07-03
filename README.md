@@ -166,20 +166,22 @@ class SessionManager:
 Each subclass gets its own `StdoutHandler` (console, one shared instance)
 wired up automatically — no duplicate-handler bugs, no manual `addHandler`.
 
-**Custom format** — subclass `StdoutHandler` and rebind it:
+**Custom format** — *where* logs go (`StdoutHandler`) and *how they look*
+(`LogFormatter`) are separate, like in stdlib `logging`. Subclass
+`LogFormatter` and rebind it — no need to touch the handler:
 
 ```python
 # app/loggers.py
-from nexus.logging import StdoutHandler
+from nexus.logging import LogFormatter
 
-class JsonStdoutHandler(StdoutHandler):
+class JsonFormatter(LogFormatter):
     format_string = '{"ts":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}'
 ```
 
 ```python
 # app/config/di.py
 DI_CONFIG = {
-    StdoutHandler: JsonStdoutHandler,
+    LogFormatter: JsonFormatter,
     ...
 }
 ```
@@ -264,7 +266,8 @@ class Application(ApplicationInterface):
 | `Root` | `nexus` | Path util for dev and PyInstaller-bundled environments |
 | `ContainerInjector` | `nexus.impl` | `ContainerInterface` impl via [injector](https://injector.readthedocs.io/) |
 | `NamedLogger` | `nexus.logging` | Base for typed, DI-injectable logger channels |
-| `StdoutHandler` | `nexus.logging` | Shared console handler; subclass to customize the format |
+| `StdoutHandler` | `nexus.logging` | Shared console handler — *where* logs go |
+| `LogFormatter` | `nexus.logging` | Default log line format — *how* logs look; subclass to customize |
 
 ## What nexus does NOT provide
 
@@ -274,7 +277,7 @@ Domain logic, UI, data access — those belong in your app.
 
 | Extra | What it unlocks |
 |-------|-----------------|
-| `nexus[injector]` | `ContainerInjector`, `nexus.logging` (`NamedLogger`, `StdoutHandler`) |
+| `nexus[injector]` | `ContainerInjector`, `nexus.logging` (`NamedLogger`, `StdoutHandler`, `LogFormatter`) |
 | `nexus[pydantic]` | `EnvironmentInterface` |
 | `nexus[full]` | Both — recommended |
 
