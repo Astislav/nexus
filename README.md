@@ -11,6 +11,10 @@ that survive PyInstaller.
 
 Install [`nexus-kit`](https://pypi.org/project/nexus-kit/), import `nexus_kit`.
 
+[Source on GitHub](https://github.com/Astislav/nexus) ·
+[Issues](https://github.com/Astislav/nexus/issues) ·
+[Releases](https://github.com/Astislav/nexus/releases)
+
 ## Why
 
 If you build long-lived Python apps **outside a web framework's cradle** — a
