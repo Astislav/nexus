@@ -104,6 +104,67 @@ class Greeter(GreeterInterface):
     def greet(self, name: str) -> str:
         return f"Hello, {name}!"
 """,
+    "CLAUDE.md": """\
+# CLAUDE.md
+
+Guidance for Claude Code (and other AI assistants) working in this repository.
+
+This app is built on the **nexus** framework. Its API, the bootstrap pattern and the
+gotchas are in `.ai/nexus.md` — read it before touching DI, config or the composition
+root (`app/config/di.py`). Keep this file thin: put engineering discipline in `.ai/`
+and only repo-specific facts here.
+""",
+    ".ai/nexus.md": """\
+# Nexus — quick reference (how to build an app on this framework)
+
+Compact cheat-sheet for the **nexus** framework (github.com/Astislav/nexus), pinned to
+**0.1.x**. For depth: the framework's own `.ai/guide.md`, or the installed source at
+`.venv/Lib/site-packages/nexus/`.
+
+## What it is
+
+A tiny application bootstrap: a **DI container** (wraps `injector`) + a **config base**
+(wraps `pydantic-settings`) + **logging** + **`Root`** (paths) + the `nexus new` CLI.
+No domain, HTTP or DB.
+
+## Public API
+
+| Symbol | Import | Role |
+|---|---|---|
+| `ApplicationInterface` | `nexus.interfaces` | run contract: `__init__(env, container)` + `run()` |
+| `ContainerInterface` | `nexus.interfaces` | DI contract: `get(cls)`, `set(cls, value)` |
+| `EnvironmentInterface` | `nexus.interfaces` | typed config base (pydantic BaseSettings + `@singleton`) |
+| `Root` | `nexus` | paths: `Root.internal(*p)` (bundled assets) / `Root.external(*p)` (files next to the exe: `.env`, db) |
+| `ContainerInjector` | `nexus.impl` | concrete container; constructor takes `DI_CONFIG: dict[Type, Impl]` |
+| `NamedLogger` / `StdoutHandler` / `LogFormatter` | `nexus.logging` | DI-injectable logging |
+
+**Gotcha:** `@singleton`, `@inject`, `Injector` come from the `injector` package, NOT
+from nexus (`from injector import inject, singleton`). Nexus never re-exports them.
+
+**Extra:** the core dependency is only `injector`; `EnvironmentInterface` needs
+`nexus[pydantic]` (or `nexus[full]`), else `ImportError`.
+
+## Bootstrap (`main.py`)
+
+```python
+env = Environment(Root.external(".env"))   # 1. config
+container = ContainerInjector(DI_CONFIG)   # 2. wiring
+container.set(Environment, env)            # 3. env is NOT auto-bound — bind it by hand
+Application(env, container).run()          # 4. start
+```
+
+- `DI_CONFIG` (composition root) is a `dict{Interface: Impl}`; register only swappable
+  seams — `@singleton @inject` services are built by the container from their constructors.
+- **Do not bind a class to itself.** Interfaces carry the `Interface` suffix; implementations don't.
+- Long-lived services are `@singleton`, dependencies come via an `@inject` constructor.
+- Logging: subclass `NamedLogger` (class attr `name`), inject by type; change the format
+  by rebinding `LogFormatter` in `DI_CONFIG`.
+
+## What nexus does NOT provide (you hand-roll these)
+
+Lifecycle orchestration (ordered start/stop, shutdown, signals — in your `Application.run()`);
+a background-service/worker base; a repository/DB layer; a test harness; HTTP/routing/retries.
+""",
 }
 
 

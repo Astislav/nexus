@@ -7,10 +7,20 @@ Context for AI assistants working in projects built with nexus.
 Nexus is a minimal Python application framework. It provides:
 
 - Interfaces (abstract contracts) for bootstrapping an application
-- `ContainerInjector` — a concrete DI container implementation
+- `ContainerInjector` — a concrete DI container implementation (thin wrapper over the `injector` library)
 - `Root` — a path utility that works in dev and PyInstaller-bundled environments
+- A logging base (`NamedLogger` / `StdoutHandler` / `LogFormatter`), DI-injectable
+- A scaffolding CLI: `nexus new <app-name>`
 
 Nexus does NOT contain domain logic, UI code, or data access. It is infrastructure only.
+
+**Gotcha:** `@singleton`, `@inject` and `Injector` come from the third-party `injector`
+package, **not** from Nexus — import them `from injector import inject, singleton`.
+Nexus never re-exports them.
+
+**Extras:** the core dependency is only `injector`. `EnvironmentInterface` needs
+`pydantic-settings`, installed via the `nexus[pydantic]` (or `nexus[full]`) extra —
+without it, importing `EnvironmentInterface` raises `ImportError`.
 
 ## Package layout
 
@@ -22,6 +32,11 @@ nexus/
 │   └── environment.py   # EnvironmentInterface
 ├── impl/                # concrete implementations — import explicitly
 │   └── container_injector.py
+├── logging/             # DI-injectable logging base
+│   ├── named_logger.py  # NamedLogger
+│   ├── stdout_handler.py# StdoutHandler
+│   └── log_formatter.py # LogFormatter
+├── cli.py               # `nexus new` scaffolder
 └── root.py              # Root utility
 ```
 
@@ -108,6 +123,34 @@ class Greeter(GreeterInterface):
     def __init__(self, dep: DepInterface) -> None:
         self._dep = dep
 ```
+
+## Logging
+
+Named logger channels are DI-injectable types, not `getLogger(str)` lookups. Subclass
+`NamedLogger`, set a class-level `name`; inject the subclass by type. Change the line
+format by rebinding `LogFormatter` in `DI_CONFIG` (independent of the destination handler).
+
+```python
+from injector import singleton
+from nexus.logging import NamedLogger, LogFormatter
+
+@singleton
+class MainLogger(NamedLogger):
+    name = "app.main"
+
+class JsonFormatter(LogFormatter):
+    def format(self, record): ...   # rebind in DI_CONFIG: {LogFormatter: JsonFormatter}
+```
+
+## What nexus does NOT provide (you hand-roll these)
+
+- No lifecycle orchestration — `run()` is fully yours; ordered start/stop of services,
+  shutdown and signal handling are hand-rolled in `Application`.
+- No background-service / worker base class, no scheduling.
+- No repository / persistence / DB layer.
+- No testing helpers or fixtures.
+- No HTTP/server/routing, retries, or middleware.
+- Config is stock `pydantic-settings`; logging is a stdout stream handler only.
 
 ## Key conventions
 
