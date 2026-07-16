@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nexus"
-version = "0.3.2"
+version = "0.3.3"
 description = "Application kernel for long-lived Python apps: one entry point, typed config, constructor DI, service lifecycle, PyInstaller-safe paths."
 readme = "README.md"
 license = { text = "MIT" }
@@ -27,6 +27,9 @@ dependencies = [
     "injector>=0.24.0",
     "pydantic-settings>=2.13.1",
 ]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
 
 [project.urls]
 Repository = "https://github.com/Astislav/nexus"

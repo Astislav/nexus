@@ -56,10 +56,10 @@ a vacuum.
 
 ```bash
 # uv
-uv add "nexus @ git+https://github.com/Astislav/nexus@v0.3.2"
+uv add "nexus @ git+https://github.com/Astislav/nexus@v0.3.3"
 
 # pip
-pip install "nexus @ git+https://github.com/Astislav/nexus@v0.3.2"
+pip install "nexus @ git+https://github.com/Astislav/nexus@v0.3.3"
 ```
 
 Requires Python 3.12+. Ships with [injector](https://injector.readthedocs.io/) and

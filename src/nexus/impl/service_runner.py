@@ -29,8 +29,12 @@ class ServiceRunner:
 
     The runner does NOT install signal handlers: who triggers the exit is
     the application's business (uvicorn's own handlers, Qt's aboutToQuit,
-    or your own). In the async context each stop() is bounded by
-    `stop_grace` seconds, then cancelled.
+    or your own). In the async context each async stop() is bounded by
+    `stop_grace` seconds, then cancelled; a SYNC stop() runs inline and is
+    not bounded — deliberately, because offloading it to a thread would
+    silently break thread-affine teardown (Qt, COM). If the surrounding
+    task is cancelled mid-teardown, the remaining services are still
+    stopped before the cancellation is re-raised.
     """
 
     def __init__(
@@ -50,11 +54,10 @@ class ServiceRunner:
 
     def __enter__(self) -> "ServiceRunner":
         for cls in self._service_types:
-            service = self._container.get(cls)
-            if inspect.iscoroutinefunction(service.start) or inspect.iscoroutinefunction(service.stop):
-                self.stop_all()
-                raise TypeError(f"{cls.__name__} is async — use 'async with' instead of 'with'")
             try:
+                service = self._container.get(cls)
+                if inspect.iscoroutinefunction(service.start) or inspect.iscoroutinefunction(service.stop):
+                    raise TypeError(f"{cls.__name__} is async — use 'async with' instead of 'with'")
                 service.start()
             except BaseException:
                 self.stop_all()
@@ -79,8 +82,8 @@ class ServiceRunner:
 
     async def __aenter__(self) -> "ServiceRunner":
         for cls in self._service_types:
-            service = self._container.get(cls)
             try:
+                service = self._container.get(cls)
                 result = service.start()
                 if inspect.isawaitable(result):
                     await result
@@ -95,6 +98,10 @@ class ServiceRunner:
         await self.stop_all_async()
 
     async def stop_all_async(self) -> None:
+        # Cancellation of the surrounding task must not abandon the remaining
+        # services half-stopped: swallow CancelledError per service, finish
+        # the teardown, then re-raise it once.
+        cancelled = False
         while self._started:
             service = self._started.pop()
             name = type(service).__name__
@@ -103,7 +110,12 @@ class ServiceRunner:
                 if inspect.isawaitable(result):
                     await asyncio.wait_for(asyncio.ensure_future(result), self._stop_grace)
                 self._log.info("stopped %s", name)
+            except asyncio.CancelledError:
+                cancelled = True
+                self._log.warning("cancelled while stopping %s — finishing the remaining teardown", name)
             except TimeoutError:
                 self._log.error("%s.stop() exceeded the %.1fs grace period and was cancelled", name, self._stop_grace)
             except Exception:
                 self._log.exception("%s.stop() failed", name)
+        if cancelled:
+            raise asyncio.CancelledError

@@ -34,8 +34,23 @@ dependencies = [
     "nexus @ git+https://github.com/Astislav/nexus@{{NEXUS_REF}}",
 ]
 
+[tool.hatch.metadata]
+allow-direct-references = true  # hatch refuses git dependencies without this
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+""",
+    ".gitignore": """\
+.venv/
+__pycache__/
+*.pyc
+.env
+dist/
+build/
+*.spec
+.pytest_cache/
+.ruff_cache/
+.idea/
 """,
     ".env": """\
 APP_NAME={{APP_NAME}}
