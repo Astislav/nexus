@@ -39,39 +39,45 @@ packages = ["app"]
 """,
     ".env": """\
 APP_NAME={{APP_NAME}}
-DEBUG=false
+TICK_SECONDS=0.7
+RUN_SECONDS=3
 """,
     "app/__init__.py": "",
     "app/application.py": """\
+import time
+
 from nexus.impl import ServiceRunner
 from nexus.interfaces import ApplicationInterface, ContainerInterface
 
 from app.config.environment import Environment
-from app.services.greeter_interface import GreeterInterface
-from app.services.heartbeat import Heartbeat
+from app.services.ticker import Ticker
 
 
 class Application(ApplicationInterface):
-    SERVICES = [Heartbeat]  # startup order; stopped in reverse on any exit
+    SERVICES = [Ticker]  # startup order; stopped in reverse on any exit
 
     def __init__(self, environment: Environment, container: ContainerInterface) -> None:
         self._env = environment
         self._container = container
-        self._greeter = container.get(GreeterInterface)
 
     def run(self) -> None:
         with ServiceRunner(self._container, self.SERVICES):
-            print(f"[{self._env.APP_NAME}] debug={self._env.DEBUG}")
-            print(self._greeter.greet("world"))
+            print(f"[{self._env.APP_NAME}] running for {self._env.RUN_SECONDS}s — Ctrl+C to stop early")
+            try:
+                # Replace with your main loop: server.wait(), app.exec(), game loop
+                time.sleep(self._env.RUN_SECONDS)
+            except KeyboardInterrupt:
+                pass
+        # leaving the block stopped the ticker and joined its thread — nothing orphaned
 """,
     "app/config/__init__.py": "",
     "app/config/di.py": """\
-# Register your services here: {Interface: Implementation}
-from app.services.greeter import Greeter
-from app.services.greeter_interface import GreeterInterface
+# Register your swappable seams here: {Interface: Implementation}
+from app.services.console_reporter import ConsoleReporter
+from app.services.reporter_interface import ReporterInterface
 
 DI_CONFIG = {
-    GreeterInterface: Greeter,
+    ReporterInterface: ConsoleReporter,
 }
 """,
     "app/config/environment.py": """\
@@ -86,46 +92,73 @@ from nexus.interfaces import EnvironmentInterface
 class Environment(EnvironmentInterface):
     # Add your config fields here — they are read from .env automatically
     APP_NAME: str = "{{APP_NAME}}"
-    DEBUG: bool = False
+    TICK_SECONDS: float = 0.7
+    RUN_SECONDS: float = 3.0
 
     def __init__(self, env_path: Path) -> None:
         super().__init__(_env_file=env_path)
 """,
     "app/services/__init__.py": "",
-    "app/services/heartbeat.py": """\
-from injector import singleton
+    "app/services/ticker.py": """\
+import threading
+
+from injector import inject, singleton
 
 from nexus.interfaces import ServiceInterface
 
+from app.config.environment import Environment
+from app.services.reporter_interface import ReporterInterface
 
-# Example long-lived service — swap for your DB pool, poller, embedded server.
-# Not in DI_CONFIG: a concrete @singleton class resolves itself.
+
+# The worker-thread skeleton every long-lived app ends up hand-rolling:
+# stop Event + bounded join. Swap the loop body for your poller, device
+# monitor or queue drainer. Not in DI_CONFIG: a concrete @singleton
+# service resolves itself; its dependencies arrive via @inject.
 @singleton
-class Heartbeat(ServiceInterface):
+class Ticker(ServiceInterface):
+    @inject
+    def __init__(self, env: Environment, reporter: ReporterInterface) -> None:
+        self._interval = env.TICK_SECONDS
+        self._reporter = reporter
+        self._ticks = 0
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+
     def start(self) -> None:
-        print("[heartbeat] started")
+        print(f"[ticker] started (every {self._interval}s)")
+        self._thread = threading.Thread(target=self._run, name="ticker", daemon=True)
+        self._thread.start()
 
     def stop(self) -> None:  # must be idempotent
-        print("[heartbeat] stopped")
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join(timeout=5.0)
+            self._thread = None
+            print(f"[ticker] stopped after {self._ticks} ticks")
+
+    def _run(self) -> None:
+        while not self._stop_event.wait(self._interval):
+            self._ticks += 1
+            self._reporter.report(self._ticks)
 """,
-    "app/services/greeter_interface.py": """\
+    "app/services/reporter_interface.py": """\
 from abc import ABC, abstractmethod
 
 
-class GreeterInterface(ABC):
+class ReporterInterface(ABC):
     @abstractmethod
-    def greet(self, name: str) -> str: ...
+    def report(self, tick: int) -> None: ...
 """,
-    "app/services/greeter.py": """\
+    "app/services/console_reporter.py": """\
 from injector import singleton
 
-from app.services.greeter_interface import GreeterInterface
+from app.services.reporter_interface import ReporterInterface
 
 
 @singleton
-class Greeter(GreeterInterface):
-    def greet(self, name: str) -> str:
-        return f"Hello, {name}!"
+class ConsoleReporter(ReporterInterface):
+    def report(self, tick: int) -> None:
+        print(f"tick #{tick}")
 """,
     "CLAUDE.md": """\
 # CLAUDE.md
@@ -189,7 +222,8 @@ Application(env, container).run()          # 4. start
 
 Long-lived services implement `ServiceInterface` — `start()`/`stop()`, sync or async,
 `stop()` must be idempotent. `Application` lists them in `SERVICES` (startup order) and
-wraps the app body in the runner; see `app/services/heartbeat.py` for the pattern:
+wraps the app body in the runner; see `app/services/ticker.py` for the pattern
+(worker thread + stop Event + bounded join):
 
 ```python
 class Application(ApplicationInterface):

@@ -183,7 +183,8 @@ no signal handlers — exit is triggered by uvicorn, Qt `aboutToQuit`, or your o
 - One class per file; file named after the class in snake_case
 - `@singleton` for long-lived managers and services
 - Dynamic objects (created at runtime) use Factories: `WidgetFactoryInterface` → `WidgetFactory`
-- Do not import concrete implementations outside of `di.py` (except in tests)
+- Do not import concrete implementations outside of `di.py` (exceptions: tests, and
+  the `SERVICES` list in `Application` — both are part of the composition root)
 
 ## What NOT to do
 

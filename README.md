@@ -56,10 +56,10 @@ a vacuum.
 
 ```bash
 # uv
-uv add "nexus @ git+https://github.com/Astislav/nexus@v0.3.1"
+uv add "nexus @ git+https://github.com/Astislav/nexus@v0.3.2"
 
 # pip
-pip install "nexus @ git+https://github.com/Astislav/nexus@v0.3.1"
+pip install "nexus @ git+https://github.com/Astislav/nexus@v0.3.2"
 ```
 
 Requires Python 3.12+. Ships with [injector](https://injector.readthedocs.io/) and
@@ -77,28 +77,31 @@ uv sync          # uv
 pip install -e . # pip
 
 python main.py
-# [heartbeat] started
-# [my-app] debug=False
-# Hello, world!
-# [heartbeat] stopped
+# [ticker] started (every 0.7s)
+# [my-app] running for 3.0s — Ctrl+C to stop early
+# tick #1
+# tick #2
+# tick #3
+# tick #4
+# [ticker] stopped after 4 ticks
 ```
 
 ## What you get
 
 ```
 my-app/
-├── main.py                          # entry point
+├── main.py                          # entry point — the whole bootstrap, 4 lines
 ├── pyproject.toml
 ├── .env
 └── app/
-    ├── application.py               # extend ApplicationInterface; SERVICES + ServiceRunner
+    ├── application.py               # SERVICES + ServiceRunner around the main loop
     ├── config/
     │   ├── di.py                    # DI_CONFIG = {Interface: Implementation}
-    │   └── environment.py           # extend EnvironmentInterface
+    │   └── environment.py           # typed fields read from .env
     └── services/
-        ├── heartbeat.py             # example ServiceInterface (start/stop lifecycle)
-        ├── greeter_interface.py     # example interface
-        └── greeter.py               # example implementation
+        ├── ticker.py                # worker thread with clean start/stop (ServiceInterface)
+        ├── reporter_interface.py    # a swappable seam
+        └── console_reporter.py     # its default implementation
 ```
 
 ## How it fits together
@@ -318,59 +321,59 @@ app's business (uvicorn's own handlers, Qt's `aboutToQuit`, or your own).
 
 ## Add a service
 
-**1. Define an interface:**
+**1. Define an interface (a swappable seam):**
 
 ```python
-# app/services/greeter_interface.py
+# app/services/reporter_interface.py
 from abc import ABC, abstractmethod
 
-class GreeterInterface(ABC):
+class ReporterInterface(ABC):
     @abstractmethod
-    def greet(self, name: str) -> str: ...
+    def report(self, tick: int) -> None: ...
 ```
 
 **2. Implement it:**
 
 ```python
-# app/services/greeter.py
-from injector import inject, singleton
-from app.services.greeter_interface import GreeterInterface
+# app/services/console_reporter.py
+from injector import singleton
+from app.services.reporter_interface import ReporterInterface
 
 @singleton
-class Greeter(GreeterInterface):
-    @inject
-    def __init__(self) -> None: ...
-
-    def greet(self, name: str) -> str:
-        return f"Hello, {name}!"
+class ConsoleReporter(ReporterInterface):
+    def report(self, tick: int) -> None:
+        print(f"tick #{tick}")
 ```
 
 **3. Register in DI:**
 
 ```python
 # app/config/di.py
-from app.services.greeter import Greeter
-from app.services.greeter_interface import GreeterInterface
+from app.services.console_reporter import ConsoleReporter
+from app.services.reporter_interface import ReporterInterface
 
 DI_CONFIG = {
-    GreeterInterface: Greeter,
+    ReporterInterface: ConsoleReporter,
 }
 ```
 
-**4. Use in Application:**
+**4. Inject it — by type, into a constructor, no string keys:**
 
 ```python
-# app/application.py
-from nexus.interfaces import ApplicationInterface, ContainerInterface, EnvironmentInterface
-from app.services.greeter_interface import GreeterInterface
+# app/services/ticker.py
+from injector import inject, singleton
+from nexus.interfaces import ServiceInterface
 
-class Application(ApplicationInterface):
-    def __init__(self, environment: EnvironmentInterface, container: ContainerInterface) -> None:
-        self._greeter = container.get(GreeterInterface)
-
-    def run(self) -> None:
-        print(self._greeter.greet("world"))
+@singleton
+class Ticker(ServiceInterface):
+    @inject
+    def __init__(self, env: Environment, reporter: ReporterInterface) -> None:
+        self._interval = env.TICK_SECONDS
+        self._reporter = reporter
 ```
+
+Swapping `ConsoleReporter` for a file writer, an HTTP pusher or a Qt widget
+is a one-line change in `DI_CONFIG` — nothing else moves.
 
 ## What nexus provides
 
