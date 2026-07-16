@@ -8,6 +8,7 @@ Nexus is a minimal Python application framework. It provides:
 
 - Interfaces (abstract contracts) for bootstrapping an application
 - `ContainerInjector` — a concrete DI container implementation (thin wrapper over the `injector` library)
+- `ServiceInterface` / `ServiceRunner` — lifecycle: ordered start, guaranteed reverse-order stop of long-lived services (sync and async)
 - `Root` — a path utility that works in dev and PyInstaller-bundled environments
 - A logging base (`NamedLogger` / `StdoutHandler` / `LogFormatter`), DI-injectable
 - A scaffolding CLI: `nexus new <app-name>`
@@ -141,10 +142,34 @@ class JsonFormatter(LogFormatter):
     def format(self, record): ...   # rebind in DI_CONFIG: {LogFormatter: JsonFormatter}
 ```
 
+## Lifecycle
+
+Long-lived services implement `ServiceInterface` (`start()`/`stop()`, sync or async,
+`stop()` idempotent). `Application` lists them in startup order and wraps the app body
+in a `ServiceRunner` context:
+
+```python
+from nexus.impl import ServiceRunner
+
+SERVICES = [Database, WebhookDispatcher, HttpApiService]   # startup order
+
+# async app:
+async with ServiceRunner(self._container, SERVICES):
+    await self._container.get(HttpApiService).wait()
+# sync app (pygame, Qt):
+with ServiceRunner(self._container, SERVICES):
+    self._main_loop()
+```
+
+Guarantees: reverse-order stop on any exit; crash-safe startup (a failed `start()`
+rolls back the already-started services); a failing `stop()` is logged and teardown
+continues; async stops are bounded by `stop_grace` (10s default). The runner installs
+no signal handlers — exit is triggered by uvicorn, Qt `aboutToQuit`, or your own code.
+
 ## What nexus does NOT provide (you hand-roll these)
 
-- No lifecycle orchestration — `run()` is fully yours; ordered start/stop of services,
-  shutdown and signal handling are hand-rolled in `Application`.
+- No signal handling — `ServiceRunner` never grabs SIGINT/SIGTERM; wire the exit
+  trigger yourself (uvicorn's handlers, Qt `aboutToQuit`, own handler).
 - No background-service / worker base class, no scheduling.
 - No repository / persistence / DB layer.
 - No testing helpers or fixtures.

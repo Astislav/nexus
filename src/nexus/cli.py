@@ -135,8 +135,10 @@ No domain, HTTP or DB.
 | `ApplicationInterface` | `nexus.interfaces` | run contract: `__init__(env, container)` + `run()` |
 | `ContainerInterface` | `nexus.interfaces` | DI contract: `get(cls)`, `set(cls, value)` |
 | `EnvironmentInterface` | `nexus.interfaces` | typed config base (pydantic BaseSettings + `@singleton`) |
+| `ServiceInterface` | `nexus.interfaces` | long-lived service: `start()`/`stop()` (sync or async, `stop()` idempotent) |
 | `Root` | `nexus` | paths: `Root.internal(*p)` (bundled assets) / `Root.external(*p)` (files next to the exe — or next to `main.py` in dev: `.env`, db) |
 | `ContainerInjector` | `nexus.impl` | concrete container; constructor takes `DI_CONFIG: dict[Type, Impl]` |
+| `ServiceRunner` | `nexus.impl` | ordered start / guaranteed reverse-order stop: `with`/`async with ServiceRunner(container, SERVICES)` around the app body |
 | `NamedLogger` / `StdoutHandler` / `LogFormatter` | `nexus.logging` | DI-injectable logging |
 
 **Gotcha:** `@singleton`, `@inject`, `Injector` come from the `injector` package, NOT
@@ -163,8 +165,9 @@ Application(env, container).run()          # 4. start
 
 ## What nexus does NOT provide (you hand-roll these)
 
-Lifecycle orchestration (ordered start/stop, shutdown, signals — in your `Application.run()`);
-a background-service/worker base; a repository/DB layer; a test harness; HTTP/routing/retries.
+Signal handling (`ServiceRunner` never grabs SIGINT/SIGTERM — exit is triggered by
+uvicorn, Qt `aboutToQuit`, or your own code); a background-service/worker base;
+a repository/DB layer; a test harness; HTTP/routing/retries.
 """,
 }
 

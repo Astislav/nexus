@@ -1,0 +1,109 @@
+import asyncio
+import inspect
+import logging
+from typing import Sequence, Type
+
+from nexus.interfaces.container import ContainerInterface
+from nexus.interfaces.service import ServiceInterface
+
+
+class ServiceRunner:
+    """Starts services in order, stops them in reverse — guaranteed.
+
+    Sync app (pygame, Qt worker threads):
+
+        runner = ServiceRunner(container, SERVICES)
+        with runner:
+            main_loop()
+
+    Async app (asyncio servers):
+
+        async with ServiceRunner(container, SERVICES) as runner:
+            await http.wait()
+
+    Startup is crash-safe: if the N-th service fails to start, the already
+    started N-1 are stopped in reverse order and the error is re-raised.
+    Teardown runs on any exit — normal return, exception, Ctrl+C — and keeps
+    going past individual stop() failures (they are logged, not raised, so
+    every service gets its chance to shut down).
+
+    The runner does NOT install signal handlers: who triggers the exit is
+    the application's business (uvicorn's own handlers, Qt's aboutToQuit,
+    or your own). In the async context each stop() is bounded by
+    `stop_grace` seconds, then cancelled.
+    """
+
+    def __init__(
+            self,
+            container: ContainerInterface,
+            services: Sequence[Type[ServiceInterface]],
+            stop_grace: float = 10.0,
+            logger: logging.Logger | None = None,
+    ) -> None:
+        self._container = container
+        self._service_types = list(services)
+        self._stop_grace = stop_grace
+        self._log = logger or logging.getLogger("nexus.services")
+        self._started: list[ServiceInterface] = []
+
+    # --- sync context ---
+
+    def __enter__(self) -> "ServiceRunner":
+        for cls in self._service_types:
+            service = self._container.get(cls)
+            if inspect.iscoroutinefunction(service.start) or inspect.iscoroutinefunction(service.stop):
+                self.stop_all()
+                raise TypeError(f"{cls.__name__} is async — use 'async with' instead of 'with'")
+            try:
+                service.start()
+            except BaseException:
+                self.stop_all()
+                raise
+            self._started.append(service)
+            self._log.info("started %s", cls.__name__)
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.stop_all()
+
+    def stop_all(self) -> None:
+        while self._started:
+            service = self._started.pop()
+            try:
+                service.stop()
+                self._log.info("stopped %s", type(service).__name__)
+            except Exception:
+                self._log.exception("%s.stop() failed", type(service).__name__)
+
+    # --- async context ---
+
+    async def __aenter__(self) -> "ServiceRunner":
+        for cls in self._service_types:
+            service = self._container.get(cls)
+            try:
+                result = service.start()
+                if inspect.isawaitable(result):
+                    await result
+            except BaseException:
+                await self.stop_all_async()
+                raise
+            self._started.append(service)
+            self._log.info("started %s", cls.__name__)
+        return self
+
+    async def __aexit__(self, *exc_info) -> None:
+        await self.stop_all_async()
+
+    async def stop_all_async(self) -> None:
+        while self._started:
+            service = self._started.pop()
+            name = type(service).__name__
+            try:
+                result = service.stop()
+                if inspect.isawaitable(result):
+                    await asyncio.wait_for(asyncio.ensure_future(result), self._stop_grace)
+                self._log.info("stopped %s", name)
+            except TimeoutError:
+                self._log.error("%s.stop() exceeded the %.1fs grace period and was cancelled", name, self._stop_grace)
+            except Exception:
+                self._log.exception("%s.stop() failed", name)

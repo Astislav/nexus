@@ -6,10 +6,10 @@ Minimal Python application framework. Single entry point, typed config, dependen
 
 ```bash
 # uv
-uv add "nexus @ git+https://github.com/Astislav/nexus@v0.2.0"
+uv add "nexus @ git+https://github.com/Astislav/nexus@v0.3.0"
 
 # pip
-pip install "nexus @ git+https://github.com/Astislav/nexus@v0.2.0"
+pip install "nexus @ git+https://github.com/Astislav/nexus@v0.3.0"
 ```
 
 Requires Python 3.12+. Ships with [injector](https://injector.readthedocs.io/) and
@@ -208,6 +208,60 @@ class SessionLogger(NamedLogger):
         self.addHandler(ui_handler)
 ```
 
+## Services & lifecycle
+
+`ServiceInterface` + `ServiceRunner` manage long-lived services: started in
+declaration order, stopped in reverse — guaranteed, even when startup or the
+app body crashes.
+
+```python
+# a service — sync or async, the runner handles both
+from injector import singleton
+from nexus.interfaces import ServiceInterface
+
+@singleton
+class Database(ServiceInterface):
+    async def start(self) -> None: ...   # open the pool
+    async def stop(self) -> None: ...    # close the pool (must be idempotent)
+```
+
+```python
+# app/application.py — async app (uvicorn, workers)
+from nexus.impl import ServiceRunner
+
+class Application(ApplicationInterface):
+    SERVICES = [Database, WebhookDispatcher, HttpApiService]  # startup order
+
+    def run(self) -> None:
+        asyncio.run(self._serve())
+
+    async def _serve(self) -> None:
+        async with ServiceRunner(self._container, self.SERVICES):
+            await self._container.get(HttpApiService).wait()
+        # leaving the block stops everything in reverse order
+```
+
+Sync apps (pygame, Qt with worker threads) use the plain context manager:
+
+```python
+    def run(self) -> None:
+        with ServiceRunner(self._container, self.SERVICES):
+            self._main_loop()
+```
+
+Guarantees:
+
+- start in order, stop in reverse — on normal exit, exception, Ctrl+C;
+- crash-safe startup: if the N-th `start()` fails, the already started N-1
+  are stopped in reverse and the error re-raises;
+- one failing `stop()` doesn't block the rest — it is logged and teardown
+  continues;
+- in the async context each `stop()` is bounded by `stop_grace` seconds
+  (default 10), then cancelled.
+
+The runner installs **no signal handlers** — who triggers the exit is your
+app's business (uvicorn's own handlers, Qt's `aboutToQuit`, or your own).
+
 ## Add a service
 
 **1. Define an interface:**
@@ -271,8 +325,10 @@ class Application(ApplicationInterface):
 | `ApplicationInterface` | `nexus.interfaces` | Bootstrap contract: `__init__(env, container)` + `run()` |
 | `ContainerInterface` | `nexus.interfaces` | DI contract: `get(cls)` + `set(cls, value)` |
 | `EnvironmentInterface` | `nexus.interfaces` | Typed config base (Pydantic BaseSettings) |
+| `ServiceInterface` | `nexus.interfaces` | Long-lived service contract: `start()` + `stop()`, sync or async |
 | `Root` | `nexus` | Path util for dev and PyInstaller-bundled environments |
 | `ContainerInjector` | `nexus.impl` | `ContainerInterface` impl via [injector](https://injector.readthedocs.io/) |
+| `ServiceRunner` | `nexus.impl` | Ordered start / guaranteed reverse-order stop (`with` / `async with`) |
 | `NamedLogger` | `nexus.logging` | Base for typed, DI-injectable logger channels |
 | `StdoutHandler` | `nexus.logging` | Shared console handler — *where* logs go |
 | `LogFormatter` | `nexus.logging` | Default log line format — *how* logs look; subclass to customize |
