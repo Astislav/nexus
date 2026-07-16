@@ -1,12 +1,15 @@
-# nexus
+# nexus-kit
 
-[![ci](https://github.com/Astislav/nexus/actions/workflows/ci.yml/badge.svg)](https://github.com/Astislav/nexus/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/nexus-kit)](https://pypi.org/project/nexus-kit/)
+[![Python](https://img.shields.io/pypi/pyversions/nexus-kit)](https://pypi.org/project/nexus-kit/)
+[![CI](https://github.com/Astislav/nexus/actions/workflows/ci.yml/badge.svg)](https://github.com/Astislav/nexus/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/Astislav/nexus/blob/master/LICENSE)
 
 A minimal application kernel for long-lived Python apps: one entry point,
 typed config, constructor DI, logger channels, service lifecycle — and paths
 that survive PyInstaller.
 
-PyPI dist **`nexus-kit`**, imports as **`nexus_kit`**, CLI command **`nexus-kit`**.
+Install [`nexus-kit`](https://pypi.org/project/nexus-kit/), import `nexus_kit`.
 
 ## Why
 
@@ -17,7 +20,7 @@ same bootstrap in every repo: an entry point, `.env` parsing, wiring services
 together, logging setup, ordered start/stop, and the `sys._MEIPASS` dance for
 frozen builds.
 
-nexus is that bootstrap extracted once and turned into a convention. Every
+nexus-kit is that bootstrap extracted once and turned into a convention. Every
 app gets the same shape: `main.py` is four lines, config is a typed class,
 services declare their dependencies in constructors, long-lived services
 start in order and stop in reverse — guaranteed. Your fifth app looks like
@@ -41,7 +44,7 @@ them all.
 - **Short scripts.** A module with functions is already dependency
   injection. This would be ceremony.
 - **Apps living happily inside FastAPI/Django conventions.** Their lifespan
-  and DI are enough; nexus solves the world outside that cradle.
+  and DI are enough; nexus-kit solves the world outside that cradle.
 - **Teams that want a mainstream stack.** This is an opinionated personal
   kernel: conventions over ecosystem, no Stack Overflow answers.
 
@@ -49,7 +52,7 @@ them all.
 
 Opinionated glue — not invention. Config is stock
 [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/),
-DI is stock [injector](https://injector.readthedocs.io/); nexus adds the
+DI is stock [injector](https://injector.readthedocs.io/); nexus-kit adds the
 parts nobody packages: the `Root` path resolver for frozen builds, typed
 logger channels, the `ServiceRunner` lifecycle, a scaffolder, and the
 convention that ties them together. Extracted from real production apps
@@ -379,7 +382,7 @@ class Ticker(ServiceInterface):
 Swapping `ConsoleReporter` for a file writer, an HTTP pusher or a Qt widget
 is a one-line change in `DI_CONFIG` — nothing else moves.
 
-## What nexus provides
+## What nexus-kit provides
 
 | Symbol | Import | Description |
 |--------|--------|-------------|
@@ -387,14 +390,14 @@ is a one-line change in `DI_CONFIG` — nothing else moves.
 | `ContainerInterface` | `nexus_kit.interfaces` | DI contract: `get(cls)` + `set(cls, value)` |
 | `EnvironmentInterface` | `nexus_kit.interfaces` | Typed config base (Pydantic BaseSettings) |
 | `ServiceInterface` | `nexus_kit.interfaces` | Long-lived service contract: `start()` + `stop()`, sync or async |
-| `Root` | `nexus` | Path util for dev and PyInstaller-bundled environments |
+| `Root` | `nexus_kit` | Path util for dev and PyInstaller-bundled environments |
 | `ContainerInjector` | `nexus_kit.impl` | `ContainerInterface` impl via [injector](https://injector.readthedocs.io/) |
 | `ServiceRunner` | `nexus_kit.impl` | Ordered start / guaranteed reverse-order stop (`with` / `async with`) |
 | `NamedLogger` | `nexus_kit.logging` | Base for typed, DI-injectable logger channels |
 | `StdoutHandler` | `nexus_kit.logging` | Shared console handler — *where* logs go |
 | `LogFormatter` | `nexus_kit.logging` | Default log line format — *how* logs look; subclass to customize |
 
-## What nexus does NOT provide
+## What nexus-kit does NOT provide
 
 Domain logic, UI, data access — those belong in your app.
 

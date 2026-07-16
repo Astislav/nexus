@@ -1,10 +1,11 @@
-# Nexus — AI Agent Guide
+# nexus-kit — AI Agent Guide
 
-Context for AI assistants working in projects built with nexus.
+Context for AI assistants working in projects built with nexus-kit
+(PyPI dist `nexus-kit`, import `nexus_kit`).
 
-## What nexus is
+## What nexus-kit is
 
-Nexus is a minimal Python application framework. It provides:
+nexus-kit is a minimal Python application framework. It provides:
 
 - Interfaces (abstract contracts) for bootstrapping an application
 - `ContainerInjector` — a concrete DI container implementation (thin wrapper over the `injector` library)

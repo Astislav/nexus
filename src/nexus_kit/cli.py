@@ -177,16 +177,16 @@ class ConsoleReporter(ReporterInterface):
 
 Guidance for Claude Code (and other AI assistants) working in this repository.
 
-This app is built on the **nexus** framework. Its API, the bootstrap pattern and the
+This app is built on the **nexus-kit** framework. Its API, the bootstrap pattern and the
 gotchas are in `.ai/nexus-kit.md` — read it before touching DI, config or the composition
 root (`app/config/di.py`). Keep this file thin: put engineering discipline in `.ai/`
 and only repo-specific facts here.
 """,
     ".ai/nexus-kit.md": """\
-# Nexus — quick reference (how to build an app on this framework)
+# nexus-kit — quick reference (how to build an app on this framework)
 
-Compact cheat-sheet for the **nexus** framework (PyPI dist `nexus-kit`, imports as
-`nexus`; github.com/Astislav/nexus), pinned to **~={{NEXUS_REF}}**. For depth: the
+Compact cheat-sheet for the **nexus-kit** framework (PyPI `nexus-kit`, import
+`nexus_kit`; github.com/Astislav/nexus), pinned to **~={{NEXUS_REF}}**. For depth: the
 framework's own `.ai/guide.md`, or the installed source at
 `.venv/Lib/site-packages/nexus_kit/`.
 
