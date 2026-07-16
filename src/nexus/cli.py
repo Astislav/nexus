@@ -135,7 +135,7 @@ No domain, HTTP or DB.
 | `ApplicationInterface` | `nexus.interfaces` | run contract: `__init__(env, container)` + `run()` |
 | `ContainerInterface` | `nexus.interfaces` | DI contract: `get(cls)`, `set(cls, value)` |
 | `EnvironmentInterface` | `nexus.interfaces` | typed config base (pydantic BaseSettings + `@singleton`) |
-| `Root` | `nexus` | paths: `Root.internal(*p)` (bundled assets) / `Root.external(*p)` (files next to the exe: `.env`, db) |
+| `Root` | `nexus` | paths: `Root.internal(*p)` (bundled assets) / `Root.external(*p)` (files next to the exe — or next to `main.py` in dev: `.env`, db) |
 | `ContainerInjector` | `nexus.impl` | concrete container; constructor takes `DI_CONFIG: dict[Type, Impl]` |
 | `NamedLogger` / `StdoutHandler` / `LogFormatter` | `nexus.logging` | DI-injectable logging |
 

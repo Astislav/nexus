@@ -116,18 +116,22 @@ class DatabaseService:
 ```python
 from nexus import Root
 
-# next to the .exe (or cwd in dev) — user data, configs, output
+# next to the .exe (or next to main.py in dev) — user data, configs, output
 config = Root.external(".env")
 db     = Root.external("data", "app.db")
 
-# inside the bundle (or cwd in dev) — shipped assets, templates
+# inside the bundle (or next to main.py in dev) — shipped assets, templates
 html   = Root.internal("templates", "report.html")
 ```
 
 | Method | Dev (plain Python) | Bundled (PyInstaller) |
 |--------|--------------------|-----------------------|
-| `Root.external(...)` | `cwd / path` | `dir(exe) / path` |
-| `Root.internal(...)` | `cwd / path` | `_MEIPASS / path` |
+| `Root.external(...)` | `dir(main.py) / path` | `dir(exe) / path` |
+| `Root.internal(...)` | `dir(main.py) / path` | `_MEIPASS / path` |
+
+In dev the anchor is the entry script's directory (not the current working
+directory), so launching `python d:/apps/game/main.py` from anywhere — an IDE,
+a task scheduler, a shortcut — resolves the same paths as running it in place.
 
 Use `external` for anything the user owns (configs, databases, output files).
 Use `internal` for assets you ship inside the bundle (templates, images, default configs).
