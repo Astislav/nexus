@@ -31,11 +31,8 @@ name = "{{APP_NAME}}"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "nexus @ git+https://github.com/Astislav/nexus@{{NEXUS_REF}}",
+    "nexus-kit~={{NEXUS_REF}}",
 ]
-
-[tool.hatch.metadata]
-allow-direct-references = true  # hatch refuses git dependencies without this
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
@@ -188,8 +185,9 @@ and only repo-specific facts here.
     ".ai/nexus.md": """\
 # Nexus — quick reference (how to build an app on this framework)
 
-Compact cheat-sheet for the **nexus** framework (github.com/Astislav/nexus), pinned to
-**{{NEXUS_REF}}**. For depth: the framework's own `.ai/guide.md`, or the installed source at
+Compact cheat-sheet for the **nexus** framework (PyPI dist `nexus-kit`, imports as
+`nexus`; github.com/Astislav/nexus), pinned to **~={{NEXUS_REF}}**. For depth: the
+framework's own `.ai/guide.md`, or the installed source at
 `.venv/Lib/site-packages/nexus/`.
 
 ## What it is
@@ -279,7 +277,7 @@ def main() -> None:
 
     root.mkdir()
 
-    nexus_ref = f"v{version('nexus')}"
+    nexus_ref = version("nexus-kit")
     for rel_path, content in _TEMPLATES.items():
         path = root / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)

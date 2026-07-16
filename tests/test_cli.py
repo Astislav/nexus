@@ -26,8 +26,7 @@ def test_scaffold_files_placeholders_and_pin(tmp_path, monkeypatch):
         assert "{{" not in content, f"unreplaced placeholder in {rel_path}"
 
     pyproject = (proj / "pyproject.toml").read_text(encoding="utf-8")
-    assert re.search(r"nexus @ git\+https://github\.com/Astislav/nexus@v\d+\.\d+\.\d+", pyproject)
-    assert "allow-direct-references = true" in pyproject  # hatch rejects git deps otherwise
+    assert re.search(r"nexus-kit~=\d+\.\d+\.\d+", pyproject)  # PyPI dist, pinned to the CLI's own version
 
     gitignore = (proj / ".gitignore").read_text(encoding="utf-8")
     assert ".env" in gitignore and ".venv/" in gitignore

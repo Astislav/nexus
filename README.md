@@ -1,8 +1,12 @@
 # nexus
 
+[![ci](https://github.com/Astislav/nexus/actions/workflows/ci.yml/badge.svg)](https://github.com/Astislav/nexus/actions/workflows/ci.yml)
+
 A minimal application kernel for long-lived Python apps: one entry point,
 typed config, constructor DI, logger channels, service lifecycle — and paths
 that survive PyInstaller.
+
+Distributed on PyPI as **`nexus-kit`**; imports as **`nexus`**.
 
 ## Why
 
@@ -56,10 +60,10 @@ a vacuum.
 
 ```bash
 # uv
-uv add "nexus @ git+https://github.com/Astislav/nexus@v0.3.3"
+uv add nexus-kit
 
 # pip
-pip install "nexus @ git+https://github.com/Astislav/nexus@v0.3.3"
+pip install nexus-kit
 ```
 
 Requires Python 3.12+. Ships with [injector](https://injector.readthedocs.io/) and
