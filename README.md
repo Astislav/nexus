@@ -1,6 +1,56 @@
 # nexus
 
-Minimal Python application framework. Single entry point, typed config, dependency injection.
+A minimal application kernel for long-lived Python apps: one entry point,
+typed config, constructor DI, logger channels, service lifecycle — and paths
+that survive PyInstaller.
+
+## Why
+
+If you build long-lived Python apps **outside a web framework's cradle** — a
+Qt tool driving hardware, a pygame game, a Windows daemon, an API server
+where uvicorn is just one service among many — you end up hand-rolling the
+same bootstrap in every repo: an entry point, `.env` parsing, wiring services
+together, logging setup, ordered start/stop, and the `sys._MEIPASS` dance for
+frozen builds.
+
+nexus is that bootstrap extracted once and turned into a convention. Every
+app gets the same shape: `main.py` is four lines, config is a typed class,
+services declare their dependencies in constructors, long-lived services
+start in order and stop in reverse — guaranteed. Your fifth app looks like
+your first, and anyone (human or AI assistant) who has seen one has seen
+them all.
+
+## Who it's for
+
+- You ship Python as **PyInstaller executables** and are tired of path bugs
+  that only appear after freezing.
+- You maintain **several apps** — web and not — and want them all shaped the
+  same instead of each inventing its own bootstrap.
+- You want **constructor injection without magic**: one explicit
+  `{Interface: Implementation}` dict, no string keys, no globals, no
+  auto-scanning.
+- Your app has **services that must start in order and stop cleanly** —
+  DB pools, pollers, device monitors, an embedded HTTP server.
+
+## Who it's NOT for
+
+- **Short scripts.** A module with functions is already dependency
+  injection. This would be ceremony.
+- **Apps living happily inside FastAPI/Django conventions.** Their lifespan
+  and DI are enough; nexus solves the world outside that cradle.
+- **Teams that want a mainstream stack.** This is an opinionated personal
+  kernel: conventions over ecosystem, no Stack Overflow answers.
+
+## What it is, honestly
+
+Opinionated glue — not invention. Config is stock
+[pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/),
+DI is stock [injector](https://injector.readthedocs.io/); nexus adds the
+parts nobody packages: the `Root` path resolver for frozen builds, typed
+logger channels, the `ServiceRunner` lifecycle, a scaffolder, and the
+convention that ties them together. Extracted from real production apps
+(a Qt device farm, a WhatsApp gateway, analytics services), not designed in
+a vacuum.
 
 ## Install
 

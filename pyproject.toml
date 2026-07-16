@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "nexus"
 version = "0.3.0"
-description = "Minimal Python application framework: single entry point, DI, typed config."
+description = "Application kernel for long-lived Python apps: one entry point, typed config, constructor DI, service lifecycle, PyInstaller-safe paths."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
