@@ -1,4 +1,5 @@
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 
@@ -28,9 +29,9 @@ build-backend = "hatchling.build"
 [project]
 name = "{{APP_NAME}}"
 version = "0.1.0"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
-    "nexus[full] @ git+https://github.com/Astislav/nexus",
+    "nexus @ git+https://github.com/Astislav/nexus@{{NEXUS_REF}}",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -118,7 +119,7 @@ and only repo-specific facts here.
 # Nexus — quick reference (how to build an app on this framework)
 
 Compact cheat-sheet for the **nexus** framework (github.com/Astislav/nexus), pinned to
-**0.1.x**. For depth: the framework's own `.ai/guide.md`, or the installed source at
+**{{NEXUS_REF}}**. For depth: the framework's own `.ai/guide.md`, or the installed source at
 `.venv/Lib/site-packages/nexus/`.
 
 ## What it is
@@ -141,8 +142,8 @@ No domain, HTTP or DB.
 **Gotcha:** `@singleton`, `@inject`, `Injector` come from the `injector` package, NOT
 from nexus (`from injector import inject, singleton`). Nexus never re-exports them.
 
-**Extra:** the core dependency is only `injector`; `EnvironmentInterface` needs
-`nexus[pydantic]` (or `nexus[full]`), else `ImportError`.
+**Dependencies:** `injector` and `pydantic-settings` are core dependencies of nexus —
+no extras, everything works out of the box.
 
 ## Bootstrap (`main.py`)
 
@@ -182,10 +183,12 @@ def main() -> None:
 
     root.mkdir()
 
+    nexus_ref = f"v{version('nexus')}"
     for rel_path, content in _TEMPLATES.items():
         path = root / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content.replace("{{APP_NAME}}", app_name), encoding="utf-8")
+        content = content.replace("{{APP_NAME}}", app_name).replace("{{NEXUS_REF}}", nexus_ref)
+        path.write_text(content, encoding="utf-8")
 
     print(f"Created {app_name}/")
     print(f"")

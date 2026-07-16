@@ -6,11 +6,15 @@ Minimal Python application framework. Single entry point, typed config, dependen
 
 ```bash
 # uv
-uv add "nexus[full] @ git+https://github.com/Astislav/nexus"
+uv add "nexus @ git+https://github.com/Astislav/nexus@v0.2.0"
 
 # pip
-pip install "nexus[full] @ git+https://github.com/Astislav/nexus"
+pip install "nexus @ git+https://github.com/Astislav/nexus@v0.2.0"
 ```
+
+Requires Python 3.12+. Ships with [injector](https://injector.readthedocs.io/) and
+[pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) —
+no extras, everything works out of the box.
 
 ## Bootstrap a new app
 
@@ -272,14 +276,6 @@ class Application(ApplicationInterface):
 ## What nexus does NOT provide
 
 Domain logic, UI, data access — those belong in your app.
-
-## Optional extras
-
-| Extra | What it unlocks |
-|-------|-----------------|
-| `nexus[injector]` | `ContainerInjector`, `nexus.logging` (`NamedLogger`, `StdoutHandler`, `LogFormatter`) |
-| `nexus[pydantic]` | `EnvironmentInterface` |
-| `nexus[full]` | Both — recommended |
 
 ## License
 

@@ -18,9 +18,8 @@ Nexus does NOT contain domain logic, UI code, or data access. It is infrastructu
 package, **not** from Nexus — import them `from injector import inject, singleton`.
 Nexus never re-exports them.
 
-**Extras:** the core dependency is only `injector`. `EnvironmentInterface` needs
-`pydantic-settings`, installed via the `nexus[pydantic]` (or `nexus[full]`) extra —
-without it, importing `EnvironmentInterface` raises `ImportError`.
+**Dependencies:** `injector` and `pydantic-settings` are core dependencies of nexus —
+no extras, everything works out of the box.
 
 ## Package layout
 
