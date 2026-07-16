@@ -43,20 +43,26 @@ DEBUG=false
 """,
     "app/__init__.py": "",
     "app/application.py": """\
+from nexus.impl import ServiceRunner
 from nexus.interfaces import ApplicationInterface, ContainerInterface
 
 from app.config.environment import Environment
 from app.services.greeter_interface import GreeterInterface
+from app.services.heartbeat import Heartbeat
 
 
 class Application(ApplicationInterface):
+    SERVICES = [Heartbeat]  # startup order; stopped in reverse on any exit
+
     def __init__(self, environment: Environment, container: ContainerInterface) -> None:
         self._env = environment
+        self._container = container
         self._greeter = container.get(GreeterInterface)
 
     def run(self) -> None:
-        print(f"[{self._env.APP_NAME}] debug={self._env.DEBUG}")
-        print(self._greeter.greet("world"))
+        with ServiceRunner(self._container, self.SERVICES):
+            print(f"[{self._env.APP_NAME}] debug={self._env.DEBUG}")
+            print(self._greeter.greet("world"))
 """,
     "app/config/__init__.py": "",
     "app/config/di.py": """\
@@ -86,6 +92,22 @@ class Environment(EnvironmentInterface):
         super().__init__(_env_file=env_path)
 """,
     "app/services/__init__.py": "",
+    "app/services/heartbeat.py": """\
+from injector import singleton
+
+from nexus.interfaces import ServiceInterface
+
+
+# Example long-lived service — swap for your DB pool, poller, embedded server.
+# Not in DI_CONFIG: a concrete @singleton class resolves itself.
+@singleton
+class Heartbeat(ServiceInterface):
+    def start(self) -> None:
+        print("[heartbeat] started")
+
+    def stop(self) -> None:  # must be idempotent
+        print("[heartbeat] stopped")
+""",
     "app/services/greeter_interface.py": """\
 from abc import ABC, abstractmethod
 
@@ -162,6 +184,28 @@ Application(env, container).run()          # 4. start
 - Long-lived services are `@singleton`, dependencies come via an `@inject` constructor.
 - Logging: subclass `NamedLogger` (class attr `name`), inject by type; change the format
   by rebinding `LogFormatter` in `DI_CONFIG`.
+
+## Lifecycle (`ServiceRunner`)
+
+Long-lived services implement `ServiceInterface` — `start()`/`stop()`, sync or async,
+`stop()` must be idempotent. `Application` lists them in `SERVICES` (startup order) and
+wraps the app body in the runner; see `app/services/heartbeat.py` for the pattern:
+
+```python
+class Application(ApplicationInterface):
+    SERVICES = [Database, Poller, HttpApiService]      # startup order
+
+    def run(self) -> None:
+        with ServiceRunner(self._container, self.SERVICES):   # async app: `async with`
+            self._main_loop()
+        # leaving the block stops everything in reverse — on return, exception, Ctrl+C
+```
+
+Guarantees: crash-safe startup (a failed `start()` rolls back the already-started
+services and re-raises); a failing `stop()` is logged, teardown continues; async stops
+are bounded by `stop_grace` (default 10s), then cancelled. The runner never grabs
+signals — the exit is triggered by uvicorn / Qt `aboutToQuit` / your own code. Services
+do NOT go into `DI_CONFIG` (concrete `@singleton` classes resolve themselves).
 
 ## What nexus does NOT provide (you hand-roll these)
 

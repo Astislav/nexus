@@ -56,10 +56,10 @@ a vacuum.
 
 ```bash
 # uv
-uv add "nexus @ git+https://github.com/Astislav/nexus@v0.3.0"
+uv add "nexus @ git+https://github.com/Astislav/nexus@v0.3.1"
 
 # pip
-pip install "nexus @ git+https://github.com/Astislav/nexus@v0.3.0"
+pip install "nexus @ git+https://github.com/Astislav/nexus@v0.3.1"
 ```
 
 Requires Python 3.12+. Ships with [injector](https://injector.readthedocs.io/) and
@@ -77,7 +77,10 @@ uv sync          # uv
 pip install -e . # pip
 
 python main.py
-# → Running my-app
+# [heartbeat] started
+# [my-app] debug=False
+# Hello, world!
+# [heartbeat] stopped
 ```
 
 ## What you get
@@ -88,11 +91,12 @@ my-app/
 ├── pyproject.toml
 ├── .env
 └── app/
-    ├── application.py               # extend ApplicationInterface
+    ├── application.py               # extend ApplicationInterface; SERVICES + ServiceRunner
     ├── config/
     │   ├── di.py                    # DI_CONFIG = {Interface: Implementation}
     │   └── environment.py           # extend EnvironmentInterface
     └── services/
+        ├── heartbeat.py             # example ServiceInterface (start/stop lifecycle)
         ├── greeter_interface.py     # example interface
         └── greeter.py               # example implementation
 ```
