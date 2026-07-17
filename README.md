@@ -17,6 +17,11 @@ Satellites are extracted from real apps as they migrate — next up:
 **Start here → [nexus-kit/README.md](nexus-kit/README.md)** — the full
 framework documentation.
 
+Every package carries a machine-oriented `.ai/guide.md` (API contract,
+conventions, anti-patterns) — point AI assistants at it instead of the
+source: [nexus-kit](nexus-kit/.ai/guide.md) ·
+[nexus-kit-fastapi](nexus-kit-fastapi/.ai/guide.md).
+
 ## Development
 
 ```bash

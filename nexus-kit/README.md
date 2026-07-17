@@ -409,6 +409,19 @@ is a one-line change in `DI_CONFIG` — nothing else moves.
 
 Domain logic, UI, data access — those belong in your app.
 
+## For AI assistants
+
+Two machine-oriented references ship with the framework:
+
+- [`.ai/guide.md`](https://github.com/Astislav/nexus/blob/master/nexus-kit/.ai/guide.md) —
+  the full framework guide: API, conventions, lifecycle guarantees, what
+  NOT to do. Point your agent at it when working in this repo or on apps
+  built with nexus-kit.
+- `nexus-kit new` generates the same knowledge into every scaffolded app:
+  a `CLAUDE.md` pointing at `.ai/nexus-kit.md` — a self-contained cheat
+  sheet pinned to the installed framework version, so an AI assistant in a
+  consumer project never needs to read the framework source.
+
 ## License
 
 MIT © Astislav Bozhevolnov

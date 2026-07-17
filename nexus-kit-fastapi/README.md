@@ -84,6 +84,13 @@ container)`, no server needed.
 - No signal handling — uvicorn's own handlers end `wait()`, and the
   runner tears everything down.
 
+## For AI assistants
+
+The package ships a compact machine-oriented reference —
+[`.ai/guide.md`](https://github.com/Astislav/nexus/blob/master/nexus-kit-fastapi/.ai/guide.md):
+the HttpService contract, the `Injected` bridge, and the anti-patterns to
+avoid. Point your agent at it before it touches the HTTP layer.
+
 ## License
 
 MIT © Astislav Bozhevolnov
