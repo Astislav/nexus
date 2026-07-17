@@ -63,6 +63,21 @@ convention that ties them together. Extracted from real production apps
 (a Qt hardware-control desk, a messaging gateway, forensic analytics
 services), not designed in a vacuum.
 
+## “Is this even pythonic?” — an honest answer
+
+**“This looks like Java.”** Partially guilty. `GreeterInterface` is
+nominal typing; current Python fashion is structural (`Protocol`). We
+chose ABCs deliberately: the contract is visible at the declaration, and
+violations fail when the container builds the graph — not at 3 a.m. when
+the frozen exe on someone else's machine first hits the missing method.
+
+Now check what the actual Zen says: *explicit is better than implicit*.
+One `DI_CONFIG` dict you can read. A `SERVICES` list that *is* the
+startup order. No decorator scanning, no string keys, no import-time side
+effects, no metaclasses. nexus-kit breaks Python **fashion**, not Python
+**philosophy** — plenty of "pythonic" frameworks resolve your
+dependencies by magic and call it elegance.
+
 ## Install
 
 ```bash
@@ -241,6 +256,18 @@ falls back to `uv run --with "pyinstaller>=6,<7"`. Frozen targets need
 Windows 10+ or any modern Linux/macOS (the Python 3.12 floor). The whole
 path — scaffold → freeze → build → run the exe with `.env` beside it — is
 exercised by this repo's CI on every push.
+
+### Deployment is a file
+
+`--env` is not an escape hatch — for a whole class of software it is the
+point. The automation you (or your AI assistant) built in an afternoon
+and want to hand to the team *today*, without knowing whether it will
+stick: the right amount of deploy infrastructure for that bet is zero.
+`nexus-kit build --env` → one file, config riding along → send it in the
+chat. No Docker, no registry, no pipeline; the machine running it doesn't
+even need Python. If the tool takes root, graduate deliberately (drop
+`--env`, ship `.env.example`, pin PyInstaller, add CI). If it dies, you
+delete one file — not a deployment.
 
 ## Logging
 
