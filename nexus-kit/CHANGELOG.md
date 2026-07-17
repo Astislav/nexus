@@ -3,6 +3,21 @@
 All notable changes to nexus-kit. Versioning: [semver](https://semver.org/) —
 in 0.x, breaking changes bump the minor version.
 
+## [0.4.7] — 2026-07-17
+
+- **`nexus-kit build`** replaces the generated `build.bat`/`build.sh` —
+  building is a CLI command now: one Python implementation on every
+  platform instead of two shell dialects to keep in sync. Cleans
+  `build/`+`dist/`, runs PyInstaller, copies EXTERNAL files next to the
+  binary.
+- **Secrets no longer ship by default**: `build` copies `.env.example` as
+  an operator template; the real `.env` goes into `dist/` only with an
+  explicit `nexus-kit build --env` (appliance-style deploys).
+- **PyInstaller is pinned**: the venv's own install wins (add it to your
+  dev group — `uv.lock` then pins it exactly); the zero-setup fallback
+  uses `uv run --with "pyinstaller>=6,<7"` instead of an unpinned latest.
+- `freeze` now generates only `app.spec`.
+
 ## [0.4.6] — 2026-07-17
 
 - **`nexus-kit freeze`** — the packaging story. Run from the app root:

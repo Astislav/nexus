@@ -37,14 +37,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --all-packages
-      - name: Scaffold + freeze artifacts
+      - name: Scaffold + freeze + build via the CLI
         run: |
           uv run nexus-kit new frozen-probe
           cd frozen-probe
           uv run --project .. nexus-kit freeze
-      - name: Build with the generated spec
-        run: |
-          uv run --with pyinstaller pyinstaller frozen-probe/app.spec --distpath frozen-dist --workpath frozen-build
+          uv run --project .. --with "pyinstaller>=6,<7" nexus-kit build
+          Move-Item dist ..\frozen-dist
       - name: Run the exe — .env beside the exe, cwd elsewhere
         run: |
           Set-Content frozen-dist/.env "APP_NAME=frozen-and-loaded`nTICK_SECONDS=0.1`nRUN_SECONDS=1"

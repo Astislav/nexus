@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -53,10 +54,8 @@ def test_freeze_generates_packaging_artifacts(tmp_path, monkeypatch):
     assert "{{" not in spec
     assert "BUNDLED" in spec and "runtime_tmpdir=None" in spec
 
-    bat = (proj / "build.bat").read_text(encoding="utf-8")
-    sh_bytes = (proj / "build.sh").read_bytes()
-    assert "pyinstaller app.spec" in bat
-    assert b"\r" not in sh_bytes  # POSIX script must be LF-only even when generated on Windows
+    assert not (proj / "build.bat").exists()  # building is `nexus-kit build`, not shell scripts
+    assert not (proj / "build.sh").exists()
 
     gitignore = (proj / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert "dist/" in gitignore and "build/" in gitignore
@@ -87,6 +86,73 @@ def test_freeze_refuses_outside_an_app(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["nexus-kit", "freeze"])
     with pytest.raises(SystemExit):
         cli.main()
+
+
+def build(proj, monkeypatch, *extra):
+    monkeypatch.chdir(proj)
+    monkeypatch.setattr(sys, "argv", ["nexus-kit", "build", *extra])
+    cli.main()
+
+
+def test_build_refuses_without_spec(tmp_path, monkeypatch):
+    proj = scaffold(tmp_path, monkeypatch, "nospec")
+    monkeypatch.chdir(proj)
+    monkeypatch.setattr(sys, "argv", ["nexus-kit", "build"])
+    with pytest.raises(SystemExit):
+        cli.main()
+
+
+def test_build_is_safe_by_default_no_real_env_in_dist(tmp_path, monkeypatch):
+    proj = scaffold(tmp_path, monkeypatch, "safe")
+    freeze(proj, monkeypatch)
+    (proj / ".env.example").write_text("APP_NAME=\n", encoding="utf-8")
+    (proj / "resources").mkdir()
+    (proj / "resources" / "hint.png").write_text("img", encoding="utf-8")
+
+    commands = []
+
+    def run():
+        commands.append(True)
+        Path("dist").mkdir()
+        return 0
+
+    monkeypatch.setattr(cli, "_run_pyinstaller", run, raising=True)
+    build(proj, monkeypatch)
+
+    assert commands, "pyinstaller was not invoked"
+    assert not (proj / "dist" / ".env").exists()          # secrets never ship by default
+    assert (proj / "dist" / ".env.example").exists()      # the operator template does
+    assert (proj / "dist" / "resources" / "hint.png").exists()
+
+
+def test_build_env_flag_ships_real_env_deliberately(tmp_path, monkeypatch):
+    proj = scaffold(tmp_path, monkeypatch, "appliance")
+    freeze(proj, monkeypatch)
+
+    def run():
+        Path("dist").mkdir()
+        return 0
+
+    monkeypatch.setattr(cli, "_run_pyinstaller", run, raising=True)
+    build(proj, monkeypatch, "--env")
+
+    dist_env = (proj / "dist" / ".env").read_text(encoding="utf-8")
+    assert "APP_NAME=appliance" in dist_env  # the scaffold's real .env, shipped on purpose
+
+
+def test_build_cleans_stale_dist(tmp_path, monkeypatch):
+    proj = scaffold(tmp_path, monkeypatch, "stale")
+    freeze(proj, monkeypatch)
+    (proj / "dist").mkdir()
+    (proj / "dist" / "old-garbage.exe").write_text("", encoding="utf-8")
+
+    def run():
+        Path("dist").mkdir()
+        return 0
+
+    monkeypatch.setattr(cli, "_run_pyinstaller", run, raising=True)
+    build(proj, monkeypatch)
+    assert not (proj / "dist" / "old-garbage.exe").exists()
 
 
 def test_generated_app_runs_through_full_lifecycle(tmp_path, monkeypatch):

@@ -206,32 +206,31 @@ Use `internal` for assets you ship inside the bundle (templates, images, default
 
 ## Freezing your app (PyInstaller)
 
-`Root` is one half of the packaging story; the other half is generated for you:
+`Root` is one half of the packaging story; the CLI is the other:
 
 ```bash
 cd my-app
-nexus-kit freeze          # exe name defaults to the directory name
-
-build.bat                 # windows
-sh build.sh               # linux / macos
-# → dist/my-app.exe
+nexus-kit freeze          # once: generate app.spec (exe name = directory name)
+nexus-kit build           # every release: clean build → dist/my-app.exe
 ```
 
-`freeze` creates three files and fixes `.gitignore` (`dist/`, `build/`):
+- **`freeze`** generates **`app.spec`** — with a `BUNDLED` list for data you
+  ship *inside* the exe (read via `Root.internal(...)`) — and fixes
+  `.gitignore`. The spec is source: commit it, grow its `BUNDLED` and
+  `hiddenimports` lists as your app grows.
+- **`build`** cleans `build/`+`dist/`, runs PyInstaller, then copies the
+  EXTERNAL files *next to* the binary — where `Root.external(...)` looks in
+  a frozen build: `resources/` (if present) and `.env.example` as an
+  operator template. Your real **`.env` never ships by default** — use
+  `nexus-kit build --env` to ship it deliberately (appliance-style deploys).
 
-- **`app.spec`** — the PyInstaller spec, with a `BUNDLED` list for data you
-  ship *inside* the exe (templates, static, default assets). Bundled data is
-  read via `Root.internal(...)`.
-- **`build.bat` / `build.sh`** — clean build via
-  `uv run --with pyinstaller pyinstaller app.spec`, then copy the EXTERNAL
-  files (`.env`, `resources/` if present) *next to* the exe — that's where
-  `Root.external(...)` looks in a frozen build.
-
-The spec is source — commit it, grow its `BUNDLED` and `hiddenimports`
-lists as your app grows. Frozen targets need Windows 10+ or any modern
-Linux/macOS (the Python 3.12 floor). The whole path — scaffold → freeze →
-run the exe with `.env` beside it — is exercised by this repo's CI on every
-push.
+One command, every platform — no `.bat`/`.sh` to keep in sync.
+Reproducibility: add PyInstaller to your dev group (`uv add --dev
+pyinstaller`) so `uv.lock` pins its exact version; without it, `build`
+falls back to `uv run --with "pyinstaller>=6,<7"`. Frozen targets need
+Windows 10+ or any modern Linux/macOS (the Python 3.12 floor). The whole
+path — scaffold → freeze → build → run the exe with `.env` beside it — is
+exercised by this repo's CI on every push.
 
 ## Logging
 
