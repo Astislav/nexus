@@ -53,6 +53,13 @@ APP_NAME={{APP_NAME}}
 TICK_SECONDS=0.7
 RUN_SECONDS=3
 """,
+    ".env.example": """\
+# Template for the real .env (which is gitignored and never ships by default).
+# On a target machine: copy next to the executable as `.env` and fill in.
+APP_NAME={{APP_NAME}}
+TICK_SECONDS=0.7
+RUN_SECONDS=3
+""",
     "app/__init__.py": "",
     "app/application.py": """\
 import time

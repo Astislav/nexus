@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.1] — 2026-07-18
+
+External review round; both findings reproduced in code before fixing.
+
+- **Failed startup no longer leaks the bound socket.** The failed-lifespan
+  path dropped the socket reference without closing it — the port stayed
+  taken until garbage collection, so an in-process retry on the same port
+  got `EADDRINUSE` (and `stop()` had nothing left to close). The socket is
+  now closed right in the failure path. Regression test: the port is
+  rebindable immediately after a failed `start()`.
+- **Pre-existing signal handlers are saved and restored.** The unix path
+  used `loop.add_signal_handler`, which silently clobbers whatever the
+  application installed and cannot be undone (asyncio has no API to read
+  the current loop handler). The bridge now uses plain `signal.signal` on
+  every platform — same reasoning as uvicorn's own capture — saving
+  originals on install and restoring them on `stop()`. Regression test
+  included.
+
 ## [0.2.0] — 2026-07-17
 
 External review round; every finding verified against uvicorn 0.51 sources

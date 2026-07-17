@@ -106,6 +106,77 @@ def test_failed_lifespan_raises_cleanly_and_rolls_back():
     assert journal == ["+first", "-first"]  # rollback ran; no SystemExit blast
 
 
+def test_failed_lifespan_releases_the_port_immediately():
+    """Regression: the failed-startup path dropped the bound socket without
+    closing it — the port lingered until GC and an in-process retry got
+    EADDRINUSE."""
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def broken_lifespan(app):
+        raise RuntimeError("lifespan boom")
+        yield  # pragma: no cover
+
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    free_port = probe.getsockname()[1]
+    probe.close()
+
+    @singleton
+    class BrokenOnPort(HttpService):
+        port = free_port
+        log_level = "critical"
+        handle_signals = False
+
+        def create_app(self) -> FastAPI:
+            return FastAPI(lifespan=broken_lifespan)
+
+    async def scenario():
+        service = ContainerInjector({}).get(BrokenOnPort)
+        with pytest.raises(RuntimeError):
+            await service.start()
+        rebind = socket.socket()  # must succeed at once — no lingering socket
+        try:
+            rebind.bind(("127.0.0.1", free_port))
+        finally:
+            rebind.close()
+
+    asyncio.run(scenario())
+
+
+def test_signal_handlers_are_saved_and_restored():
+    """Regression: the bridge silently clobbered pre-existing signal handlers
+    and left them gone after stop()."""
+    import signal as signal_module
+
+    sentinel_calls = []
+
+    def sentinel(sig, frame):  # pragma: no cover — never actually fired
+        sentinel_calls.append(sig)
+
+    previous = signal_module.signal(signal_module.SIGINT, sentinel)
+    try:
+
+        @singleton
+        class Quiet(HttpService):
+            port = 0
+            log_level = "critical"
+
+            def create_app(self) -> FastAPI:
+                return FastAPI()
+
+        async def scenario():
+            service = ContainerInjector({}).get(Quiet)
+            await service.start()
+            assert signal_module.getsignal(signal_module.SIGINT) is not sentinel  # bridge took over
+            await service.stop()
+            assert signal_module.getsignal(signal_module.SIGINT) is sentinel  # and gave it back
+
+        asyncio.run(scenario())
+    finally:
+        signal_module.signal(signal_module.SIGINT, previous)
+
+
 def test_start_raises_on_busy_port_instead_of_failing_silently():
     async def scenario():
         blocker = socket.socket()

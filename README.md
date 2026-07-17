@@ -6,7 +6,7 @@
 
 A minimal application kernel for long-lived Python apps: one entry point,
 typed config, constructor DI, logger channels, service lifecycle — and a
-deploy story that fits in a single file.
+deploy story that fits in a single artifact.
 
 ```python
 # ---- your fifth app, today --------------------------------------
@@ -57,7 +57,7 @@ sync. Bundled assets live inside the executable (`Root.internal`), operator file
 land next to it (`Root.external`). The full path — scaffold → freeze →
 build → run the executable — is exercised by CI on Windows, Linux and macOS on every push.
 
-## Deployment is a file
+## Deployment is an artifact, not a pipeline
 
 There is a class of software the industry pretends not to see: the
 internal automation you — or your AI assistant — built in an afternoon.
@@ -67,18 +67,22 @@ for that bet is **zero**: no Dockerfile, no registry, no pipeline, no
 YAML.
 
 ```bash
-nexus-kit build --env          # one file, config riding along
+nexus-kit build --env    # dist/: the executable + its config, ready to hand over
 ```
 
-Send it in the chat. Drop it on the machine. Done — the person running it
-needs Python installed exactly as much as they need your k8s cluster: not
-at all. If the tool takes root, you graduate deliberately: `build`
-without `--env` ships `.env.example` instead of your secrets, PyInstaller
+Zip `dist/`, drop it in the chat, done — the person running it needs
+Python installed exactly as much as they need your k8s cluster: not at
+all. (`--env` ships your real secrets — use it for machines you'd trust
+with them anyway; the default ships `.env.example` for the operator to
+fill in.) If the tool takes root, you graduate deliberately: PyInstaller
 pins into your dev group, CI arrives when it's earned. If the tool dies —
-you delete one file, not a deployment.
+you delete a folder, not a deployment.
 
-This is not a guilty fallback from "real" deployment. For unproven
-software it is the superior strategy — and in the AI era, where writing
+Call it what it is: **handover distribution, not fleet management**. No
+code signing, no auto-updates, no rollback — and PyInstaller builds are
+per-OS, so build on the platform you target. That's the point: those
+things arrive when the tool has earned them, not before. For unproven
+software this is the superior strategy — and in the AI era, where writing
 the tool costs an afternoon, **distribution is the bottleneck**.
 nexus-kit makes distribution a build artifact.
 
@@ -119,7 +123,8 @@ this one is documented for the pair of you.
 - **Secrets don't ship.** Your `.env` enters `dist/` only via an explicit
   `--env`.
 - **The core grabs no signals.** Exit is the application's decision.
-- **Deployment can be a file** — a feature, not an apology.
+- **Deployment is an artifact, not a pipeline** — a feature, not an
+  apology.
 - **Extracted, not designed.** Every satellite is cut out of a running
   production app; nothing here was invented on a whiteboard.
 - **Stale AI docs are worse than none.** The machine guide changes in the

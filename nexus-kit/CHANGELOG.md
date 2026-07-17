@@ -3,6 +3,17 @@
 All notable changes to nexus-kit. Versioning: [semver](https://semver.org/) —
 in 0.x, breaking changes bump the minor version.
 
+## [0.4.8] — 2026-07-18
+
+- Scaffold generates `.env.example` alongside `.env` — so the default
+  (secret-free) `nexus-kit build` has an operator template to ship without
+  the user hand-creating one.
+- Docs honesty pass on the deployment story: "Deployment is an artifact,
+  not a pipeline" — `dist/` is an executable plus its config (never "one
+  file"), `--env` is called out as shipping real secrets, and the scope is
+  stated plainly: handover distribution, not fleet management (no signing,
+  no auto-updates, per-OS builds).
+
 ## [0.4.7] — 2026-07-17
 
 - **`nexus-kit build`** replaces the generated `build.bat`/`build.sh` —

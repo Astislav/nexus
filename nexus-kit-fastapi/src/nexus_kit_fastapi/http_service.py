@@ -108,7 +108,6 @@ class HttpService(ServiceInterface):
         self._task: Optional[asyncio.Task] = None
         self._socket: Optional[socket.socket] = None
         self._bound_port: Optional[int] = None
-        self._loop_signals: list[int] = []
         self._signal_originals: dict[int, object] = {}
 
     @abstractmethod
@@ -141,9 +140,11 @@ class HttpService(ServiceInterface):
         while not self._server.started and not self._task.done():
             await asyncio.sleep(0.01)
         if self._task.done():
-            task = self._task
+            task, sock = self._task, self._socket
             self._restore_signal_handlers()
             self._reset()
+            if sock is not None:
+                sock.close()  # else the bound port lingers until GC and an in-process retry gets EADDRINUSE
             await task  # re-raises the startup failure as a normal exception
             raise RuntimeError(f"{type(self).__name__}: uvicorn exited during startup")
 
@@ -205,26 +206,24 @@ class HttpService(ServiceInterface):
         if threading.current_thread() is not threading.main_thread():
             return  # signals are a main-thread affair; embedded loops opt out naturally
         loop = asyncio.get_running_loop()
+
+        # signal.signal on purpose, NOT loop.add_signal_handler: asyncio has no
+        # API to read the loop's current handler, so a loop handler could never
+        # be saved or restored — it would silently clobber whatever the
+        # application installed. Plain signals save/restore cleanly on every
+        # platform (the same reasoning uvicorn's own capture uses); the handler
+        # fires in the main thread and hops into the loop thread-safely.
+        def request_exit(sig: int, frame: object) -> None:
+            loop.call_soon_threadsafe(self._request_exit)
+
         for sig in self._handled_signals():
-            try:
-                loop.add_signal_handler(sig, self._request_exit)
-                self._loop_signals.append(sig)
-            except (NotImplementedError, RuntimeError):
-                # Windows / exotic loops: fall back to signal.signal; the
-                # handler fires in the main thread between bytecodes, so hop
-                # into the loop thread-safely.
-                previous = signal.signal(sig, lambda s, f: loop.call_soon_threadsafe(self._request_exit))
-                self._signal_originals[sig] = previous
+            with contextlib.suppress(ValueError, OSError):
+                self._signal_originals[sig] = signal.signal(sig, request_exit)
 
     def _restore_signal_handlers(self) -> None:
-        if self._loop_signals or self._signal_originals:
-            with contextlib.suppress(RuntimeError):
-                loop = asyncio.get_running_loop()
-                for sig in self._loop_signals:
-                    loop.remove_signal_handler(sig)
         for sig, previous in self._signal_originals.items():
-            signal.signal(sig, previous)  # type: ignore[arg-type]
-        self._loop_signals = []
+            with contextlib.suppress(ValueError, OSError):
+                signal.signal(sig, previous)  # type: ignore[arg-type]
         self._signal_originals = {}
 
     def _reset(self) -> None:

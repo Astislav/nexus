@@ -258,17 +258,23 @@ path — scaffold → freeze → build → run the executable with `.env` beside
 it — is exercised by this repo's CI on Windows, Linux and macOS on every
 push.
 
-### Deployment is a file
+### Deployment is an artifact, not a pipeline
 
 `--env` is not an escape hatch — for a whole class of software it is the
 point. The automation you (or your AI assistant) built in an afternoon
 and want to hand to the team *today*, without knowing whether it will
 stick: the right amount of deploy infrastructure for that bet is zero.
-`nexus-kit build --env` → one file, config riding along → send it in the
-chat. No Docker, no registry, no pipeline; the machine running it doesn't
-even need Python. If the tool takes root, graduate deliberately (drop
-`--env`, ship `.env.example`, pin PyInstaller, add CI). If it dies, you
-delete one file — not a deployment.
+`nexus-kit build --env` → `dist/` holds the executable plus its config →
+zip it, send it. No Docker, no registry, no pipeline; the machine running
+it doesn't even need Python. (`--env` ships real secrets — for machines
+you'd trust with them anyway; the default ships the scaffolded
+`.env.example` instead.) If the tool takes root, graduate deliberately:
+pin PyInstaller, add CI. If it dies, you delete a folder — not a
+deployment.
+
+Honest scope: this is handover distribution, not fleet management — no
+code signing/notarization, no auto-updates, no rollback, and PyInstaller
+builds are per-OS (build on the platform you target).
 
 ## Logging
 
