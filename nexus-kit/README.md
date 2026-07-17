@@ -97,6 +97,16 @@ python main.py
 # [ticker] stopped after 4 ticks
 ```
 
+And when it's time to ship it as a single executable:
+
+```bash
+nexus-kit freeze          # once: generate app.spec
+nexus-kit build           # every release: clean build → dist/my-app.exe
+```
+
+See [Freezing your app](#freezing-your-app-pyinstaller) for what goes
+inside the exe vs next to it.
+
 ## What you get
 
 ```
