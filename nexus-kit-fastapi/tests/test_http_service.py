@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from injector import singleton
 
 from nexus_kit.impl import ContainerInjector, ServiceRunner
+from nexus_kit.interfaces import ServiceInterface
 from nexus_kit_fastapi import HttpService, Injected
 
 
@@ -63,6 +64,46 @@ def test_runs_under_service_runner():
             _ = service.bound_port
 
     asyncio.run(scenario())
+
+
+def test_failed_lifespan_raises_cleanly_and_rolls_back():
+    """Regression: uvicorn 0.50+ sys.exit(3)s inside the serve task when the
+    FastAPI lifespan fails — SystemExit from a task blows through the event
+    loop past the rollback. The bridge translates it into a RuntimeError."""
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def broken_lifespan(app):
+        raise RuntimeError("lifespan boom")
+        yield  # pragma: no cover
+
+    journal = []
+
+    @singleton
+    class First(ServiceInterface):
+        def start(self):
+            journal.append("+first")
+
+        def stop(self):
+            journal.append("-first")
+
+    @singleton
+    class BrokenApp(HttpService):
+        port = 0
+        log_level = "critical"
+        handle_signals = False
+
+        def create_app(self) -> FastAPI:
+            return FastAPI(lifespan=broken_lifespan)
+
+    async def scenario():
+        container = ContainerInjector({})
+        with pytest.raises(RuntimeError, match="uvicorn exited"):
+            async with ServiceRunner(container, [First, BrokenApp]):
+                pass
+
+    asyncio.run(scenario())
+    assert journal == ["+first", "-first"]  # rollback ran; no SystemExit blast
 
 
 def test_start_raises_on_busy_port_instead_of_failing_silently():

@@ -11,7 +11,8 @@ FastAPI's TestClient — no server needed.
 """
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException
+from starlette.requests import HTTPConnection
 
 from nexus_kit.interfaces import ContainerInterface
 
@@ -27,9 +28,15 @@ def attach_container(app: FastAPI, container: ContainerInterface) -> None:
     setattr(app.state, _STATE_ATTR, container)
 
 
-def get_container(request: Request) -> ContainerInterface:
-    """The nexus container of the current app — for hand-written dependencies."""
-    container = getattr(request.app.state, _STATE_ATTR, None)
+def get_container(connection: HTTPConnection) -> ContainerInterface:
+    """The nexus container of the current app — for hand-written dependencies.
+
+    Takes the Starlette HTTPConnection (the base of both Request and
+    WebSocket), so it works in HTTP and WebSocket dependencies alike. For a
+    mounted sub-app, attach the container to the sub-app too — `request.app`
+    is the innermost app.
+    """
+    container = getattr(connection.app.state, _STATE_ATTR, None)
     if container is None:
         raise HTTPException(status_code=503, detail="nexus container is not attached to this app")
     return container
@@ -50,8 +57,10 @@ def Injected[T](cls: type[T]) -> T:  # noqa: N802 — deliberately reads like Fa
             await sender.enqueue(text)
     """
 
-    def resolve(request: Request):
-        return get_container(request).get(cls)
+    # async on purpose: a sync dependency would be shipped to FastAPI's
+    # threadpool on every request — a pointless hop for a dict lookup.
+    async def resolve(connection: HTTPConnection):
+        return get_container(connection).get(cls)
 
     resolve.__name__ = f"injected_{getattr(cls, '__name__', cls)}"
     return Depends(resolve)

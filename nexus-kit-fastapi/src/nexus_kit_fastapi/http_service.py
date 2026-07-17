@@ -8,12 +8,26 @@ route handlers reach the nexus container (see `inject.Injected`).
 Deliberately NOT owned here: service lifecycle belongs to your Application
 via ServiceRunner, not to a FastAPI lifespan — the HTTP edge is just one
 service among many.
+
+Signals: unlike a bare uvicorn, this bridge handles them itself (opt-out
+via `handle_signals = False`). uvicorn's own capture is disabled because it
+restores the previous handlers and RE-RAISES the captured signal after its
+shutdown — with default handlers a SIGTERM would kill the process before
+ServiceRunner finishes stopping the other services. The bridge converts
+SIGINT/SIGTERM (and SIGBREAK on Windows) into a graceful drain instead:
+wait() returns, the Application body exits, the runner tears everything
+down, the process ends normally.
 """
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import signal
 import socket
+import sys
+import threading
 from abc import abstractmethod
+from collections.abc import Generator
 from typing import Optional
 
 import uvicorn
@@ -23,6 +37,24 @@ from injector import inject
 from nexus_kit.interfaces import ContainerInterface, ServiceInterface
 
 from nexus_kit_fastapi.inject import attach_container
+
+
+class _QuietServer(uvicorn.Server):
+    """uvicorn.Server with its signal handling disabled.
+
+    Stock uvicorn installs SIGINT/SIGTERM handlers and, after a graceful
+    shutdown, restores the ORIGINAL handlers and re-raises the captured
+    signal (`capture_signals`). In a composite app that re-raise arrives
+    when the default handler is back in charge and terminates the process
+    mid-teardown. HttpService owns the signals instead.
+    """
+
+    @contextlib.contextmanager
+    def capture_signals(self) -> Generator[None, None, None]:  # uvicorn >= 0.29
+        yield
+
+    def install_signal_handlers(self) -> None:  # older uvicorn code path
+        pass
 
 
 class HttpService(ServiceInterface):
@@ -44,22 +76,27 @@ class HttpService(ServiceInterface):
                 return app
 
     Contract:
-    - start() binds the socket itself, synchronously, then hands it to
-      uvicorn — a busy port raises a plain OSError right in start(), so
-      ServiceRunner can roll back cleanly (uvicorn's own bind path would
-      sys.exit(3) inside the task instead);
-    - stop() asks uvicorn for a graceful exit and awaits it; idempotent;
-    - wait() blocks until the server exits (uvicorn handles Ctrl+C/SIGTERM
-      itself when it runs in the main-thread event loop) — the natural body
-      for an HTTP-fronted Application:
-
-        async with ServiceRunner(self._container, self.SERVICES):
-            await self._container.get(ApiService).wait()
+    - start() binds the socket itself, synchronously — a busy port raises a
+      plain OSError right in start(), so ServiceRunner can roll back cleanly;
+      uvicorn's in-task sys.exit()s (e.g. a failed FastAPI lifespan) are
+      translated into a normal RuntimeError for the same reason.
+    - stop() is a graceful uvicorn shutdown, idempotent; a cancellation of
+      the caller is honoured, not swallowed.
+    - wait() blocks until the server exits — the natural Application body:
+      `async with ServiceRunner(...): await container.get(ApiService).wait()`.
+    - signals: handled by the bridge by default (`handle_signals = True`) —
+      SIGINT/SIGTERM/SIGBREAK request a graceful drain, so wait() returns
+      and the runner still stops every service. Set `handle_signals = False`
+      if your application owns signal handling itself.
+    - `port = 0` binds an ephemeral port; read it via `bound_port`.
+    - Override `uvicorn_config(app)` for TLS/proxy headers, or to wrap the
+      app in ASGI middleware (e.g. `socketio.ASGIApp`) before serving.
     """
 
     host: str = "127.0.0.1"
     port: int = 8000
     log_level: str = "info"
+    handle_signals: bool = True
 
     @inject
     def __init__(self, container: ContainerInterface) -> None:
@@ -71,6 +108,8 @@ class HttpService(ServiceInterface):
         self._task: Optional[asyncio.Task] = None
         self._socket: Optional[socket.socket] = None
         self._bound_port: Optional[int] = None
+        self._loop_signals: list[int] = []
+        self._signal_originals: dict[int, object] = {}
 
     @abstractmethod
     def create_app(self) -> FastAPI: ...
@@ -83,7 +122,7 @@ class HttpService(ServiceInterface):
         app = self.create_app()
         attach_container(app, self._container)
         config = self.uvicorn_config(app)
-        self._server = uvicorn.Server(config)
+        self._server = _QuietServer(config)
         # Bind the socket ourselves, synchronously: a busy port surfaces right
         # here as a plain OSError — NOT uvicorn's in-task sys.exit(3), which
         # would blow through the event loop past any rollback. uvicorn's
@@ -96,24 +135,37 @@ class HttpService(ServiceInterface):
             raise OSError(f"{type(self).__name__}: failed to bind {self.host}:{self.port}") from exc
         address = self._socket.getsockname()
         self._bound_port = address[1] if isinstance(address, tuple) else None
-        self._task = asyncio.create_task(
-            self._server.serve(sockets=[self._socket]), name=f"{type(self).__name__}-serve"
-        )
+        if self.handle_signals:
+            self._install_signal_handlers()
+        self._task = asyncio.create_task(self._run_server(), name=f"{type(self).__name__}-serve")
         while not self._server.started and not self._task.done():
             await asyncio.sleep(0.01)
         if self._task.done():
             task = self._task
+            self._restore_signal_handlers()
             self._reset()
-            await task  # re-raises the startup failure (bad TLS, broken app, ...)
+            await task  # re-raises the startup failure as a normal exception
             raise RuntimeError(f"{type(self).__name__}: uvicorn exited during startup")
 
+    async def _run_server(self) -> None:
+        try:
+            await self._server.serve(sockets=[self._socket])
+        except SystemExit as exc:
+            # uvicorn sys.exit()s inside the task on startup failures (e.g. a
+            # failed FastAPI lifespan). SystemExit from a task blows straight
+            # through the event loop, past every rollback — translate it.
+            raise RuntimeError(
+                f"{type(self).__name__}: uvicorn exited with code {exc.code} (failed lifespan startup?)"
+            ) from exc
+
     async def wait(self) -> None:
-        """Block until the server exits."""
+        """Block until the server exits (graceful signal, stop(), or crash)."""
         if self._task is not None:
             await self._task
 
     async def stop(self) -> None:  # idempotent
         server, task, sock = self._server, self._task, self._socket
+        self._restore_signal_handlers()
         self._reset()
         if server is not None:
             server.should_exit = True
@@ -121,9 +173,59 @@ class HttpService(ServiceInterface):
             try:
                 await task
             except asyncio.CancelledError:
-                pass
+                current = asyncio.current_task()
+                if current is not None and current.cancelling():
+                    # The cancellation targets US — honour it. Cancel the
+                    # server task too so it doesn't linger, then re-raise.
+                    task.cancel()
+                    raise
+                # Otherwise the server task itself was cancelled: it is down,
+                # which is what stop() wanted.
         if sock is not None:
             sock.close()
+
+    # --- signal handling (bridge-owned; see module docstring) ---
+
+    def _handled_signals(self) -> list[signal.Signals]:
+        sigs = [signal.SIGINT, signal.SIGTERM]
+        if sys.platform == "win32":
+            sigs.append(signal.SIGBREAK)
+        return sigs
+
+    def _request_exit(self) -> None:
+        server = self._server
+        if server is None:
+            return
+        if server.should_exit:
+            server.force_exit = True  # second signal: stop draining, go down now
+        else:
+            server.should_exit = True
+
+    def _install_signal_handlers(self) -> None:
+        if threading.current_thread() is not threading.main_thread():
+            return  # signals are a main-thread affair; embedded loops opt out naturally
+        loop = asyncio.get_running_loop()
+        for sig in self._handled_signals():
+            try:
+                loop.add_signal_handler(sig, self._request_exit)
+                self._loop_signals.append(sig)
+            except (NotImplementedError, RuntimeError):
+                # Windows / exotic loops: fall back to signal.signal; the
+                # handler fires in the main thread between bytecodes, so hop
+                # into the loop thread-safely.
+                previous = signal.signal(sig, lambda s, f: loop.call_soon_threadsafe(self._request_exit))
+                self._signal_originals[sig] = previous
+
+    def _restore_signal_handlers(self) -> None:
+        if self._loop_signals or self._signal_originals:
+            with contextlib.suppress(RuntimeError):
+                loop = asyncio.get_running_loop()
+                for sig in self._loop_signals:
+                    loop.remove_signal_handler(sig)
+        for sig, previous in self._signal_originals.items():
+            signal.signal(sig, previous)  # type: ignore[arg-type]
+        self._loop_signals = []
+        self._signal_originals = {}
 
     def _reset(self) -> None:
         self._server = None

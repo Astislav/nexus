@@ -35,12 +35,21 @@ class ApiService(HttpService):
 
 Contract:
 - `start()` binds the socket itself, synchronously — a busy port raises a
-  plain `OSError` in `start()`, so ServiceRunner rolls back cleanly.
-- `stop()` is a graceful uvicorn shutdown, idempotent.
+  plain `OSError` in `start()`, so ServiceRunner rolls back cleanly; a
+  failed FastAPI lifespan (uvicorn's in-task `sys.exit`) is translated into
+  a normal `RuntimeError` for the same reason.
+- `stop()` is a graceful uvicorn shutdown, idempotent; a cancellation of
+  the caller is honoured, not swallowed.
 - `wait()` blocks until the server exits — the natural Application body:
   `async with ServiceRunner(...): await container.get(ApiService).wait()`.
+- Signals are handled BY THE BRIDGE (default `handle_signals = True`):
+  SIGINT/SIGTERM/SIGBREAK → graceful drain → wait() returns → the runner
+  stops everything. uvicorn's own capture is disabled because it re-raises
+  the signal after shutdown, killing the process mid-teardown. Opt out with
+  `handle_signals = False` only if the application owns signals itself.
 - `port = 0` binds an ephemeral port; read it via `service.bound_port`.
-- Override `uvicorn_config(app)` for TLS/proxy-headers — plain uvicorn API.
+- Override `uvicorn_config(app)` for TLS/proxy-headers or to wrap the app
+  in ASGI middleware (e.g. `socketio.ASGIApp`) — plain uvicorn API.
 
 ## Injected — routes reach the container
 
@@ -65,6 +74,7 @@ Tests without a server: `attach_container(app, container)` + FastAPI
   many (typically last in `SERVICES`: last up, first down).
 - Do not construct domain objects inside route handlers — resolve them via
   `Injected` from the one container.
-- Do not install signal handlers — uvicorn's own handlers end `wait()`.
+- Do not install your own signal handlers while `handle_signals = True`
+  (the default) — the bridge already converts them into a graceful drain.
 - Do not pass the container around explicitly in routes — `Injected` exists
   so handlers never see `ContainerInterface`.

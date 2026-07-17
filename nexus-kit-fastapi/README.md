@@ -76,13 +76,26 @@ It composes with everything FastAPI: auth dependencies, sub-dependencies,
 `TestClient` — attach the container manually via `attach_container(app,
 container)`, no server needed.
 
+## Signals
+
+The bridge handles SIGINT/SIGTERM (and SIGBREAK on Windows) itself and
+converts them into a graceful drain: `wait()` returns, your Application
+body exits, `ServiceRunner` stops every service, the process ends normally.
+A second signal skips the drain and goes down hard.
+
+Why not leave it to uvicorn: uvicorn's stock signal capture restores the
+*previous* handlers after its own shutdown and **re-raises the captured
+signal** — with default handlers a SIGTERM kills the process before the
+rest of your services get their `stop()`. In a composite app that breaks
+the whole teardown promise, so the bridge disables uvicorn's capture and
+owns the conversion. Set `handle_signals = False` on your subclass if the
+application manages signals itself. The nexus core remains signal-free.
+
 ## What this package deliberately does NOT do
 
 - No FastAPI lifespan management — your `Application` + `ServiceRunner`
   own the lifecycle; the HTTP edge is just one service among many.
 - No routing/middleware/auth helpers — that's FastAPI's job.
-- No signal handling — uvicorn's own handlers end `wait()`, and the
-  runner tears everything down.
 
 ## For AI assistants
 
