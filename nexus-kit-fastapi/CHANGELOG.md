@@ -27,7 +27,7 @@ before fixing.
 
 ## [0.1.0] — 2026-07-17
 
-Initial release, extracted from a production WhatsApp gateway.
+Initial release, extracted from a production messaging gateway.
 
 - `HttpService(ServiceInterface)` — uvicorn as a nexus lifecycle service:
   subclass, implement `create_app()`, set host/port. `start()` returns only

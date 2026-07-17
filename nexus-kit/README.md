@@ -60,8 +60,8 @@ DI is stock [injector](https://injector.readthedocs.io/); nexus-kit adds the
 parts nobody packages: the `Root` path resolver for frozen builds, typed
 logger channels, the `ServiceRunner` lifecycle, a scaffolder, and the
 convention that ties them together. Extracted from real production apps
-(a Qt device farm, a WhatsApp gateway, analytics services), not designed in
-a vacuum.
+(a Qt hardware-control desk, a messaging gateway, forensic analytics
+services), not designed in a vacuum.
 
 ## Install
 

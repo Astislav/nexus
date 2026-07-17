@@ -3,6 +3,11 @@
 All notable changes to nexus-kit. Versioning: [semver](https://semver.org/) —
 in 0.x, breaking changes bump the minor version.
 
+## [0.4.5] — 2026-07-17
+
+- Docs only: product-neutral wording for the donor applications on the
+  PyPI page (no brand names in the framework's own story).
+
 ## [0.4.4] — 2026-07-17
 
 - **ServiceRunner**: a cancellation arriving during the emergency cleanup of
