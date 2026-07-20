@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.4] — 2026-07-20
+
+- Requires **nexus-kit >= 0.4.12** — the kernel whose `sync-ai` mirrors this
+  package's embedded guide correctly (app-venv scan, version pin from the
+  app, explicit trust gate) and which excludes the yanked 0.4.10. The prior
+  floor (`~=0.4.3`) allowed a kernel with no `sync-ai` at all. No runtime
+  code change; the embedded guide is republished so the PyPI wheel matches
+  the repository.
+
 ## [0.2.3] — 2026-07-18
 
 - The AI guide (`.ai/guide.md`) now ships inside the wheel as

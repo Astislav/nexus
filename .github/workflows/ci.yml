@@ -75,6 +75,8 @@ jobs:
           uv venv
           uv pip install --python .venv "$GITHUB_WORKSPACE/nexus-kit" "$GITHUB_WORKSPACE/nexus-kit-fastapi"
           "$BIN" sync-ai
+          test ! -f .ai/nexus-kit-fastapi.md || { echo "satellite mirrored without being trusted"; exit 1; }
+          "$BIN" sync-ai --trust nexus-kit-fastapi
           test -f .ai/nexus-kit-fastapi.md || { echo "global-tool sync-ai did not find the satellite in the app venv"; exit 1; }
           grep -q "nexus-kit-fastapi" .ai/nexus-kit-fastapi.md
       - name: Windowed build must start and exit cleanly (Windows)

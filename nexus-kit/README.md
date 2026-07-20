@@ -454,13 +454,18 @@ package ships its own AI guide inside its wheel, and
 uv run nexus-kit sync-ai   # after adding, upgrading or removing any nexus-kit package
 ```
 
-mirrors each installed `nexus-kit-*` package's guide into the app's
-`.ai/<dist-name>.md` (and refreshes the kernel cheat sheet). Run it via
-`uv run` so the project environment is the one scanned. Only the
-`nexus-kit-*` namespace is mirrored — an unrelated dependency shipping a
-guide is never a write channel into your AI docs. Managed files carry a
-header stamp; your own `.ai/*.md` files are never touched; a plain run
-never deletes (add `--prune` to drop guides of uninstalled packages).
+mirrors each installed, trusted `nexus-kit-*` package's guide into the app's
+`.ai/<dist-name>.md` (and refreshes the kernel cheat sheet, pinned to the
+kernel version installed in the app). Run it via `uv run` so the project
+environment is the one scanned.
+
+A guide is instructions your AI assistant will follow, so a satellite is
+mirrored only after you trust its package once — `uv run nexus-kit sync-ai
+--trust nexus-kit-fastapi` (the kernel is trusted implicitly; the list lives
+in `.ai/trusted-guides.txt`). The `nexus-kit-*` name is only a filter, not a
+trust boundary. Managed files carry a header stamp; your own `.ai/*.md` files
+are never touched; a plain run never deletes (add `--prune` to drop guides of
+uninstalled packages).
 
 ## License
 

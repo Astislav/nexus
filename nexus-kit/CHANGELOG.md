@@ -3,6 +3,30 @@
 All notable changes to nexus-kit. Versioning: [semver](https://semver.org/) —
 in 0.x, breaking changes bump the minor version.
 
+## [0.4.12] — 2026-07-20
+
+Second `sync-ai` hardening round (an external review found the edges 0.4.11
+left open; each reproduced before fixing):
+
+- **The kernel version pin comes from the app, not the CLI.** A global
+  `nexus-kit` wrote its own version into `~=` even when the app pinned a
+  different kernel — satellites were read from the app venv but the kernel
+  version was `version("nexus-kit")` of the interpreter running the CLI.
+  The pin is now read from the nexus-kit installed in the app's `.venv`; a
+  version mismatch with the CLI is reported, and only the cheat-sheet body
+  (not the load-bearing pin) still reflects the CLI.
+- **A satellite guide is mirrored only after you trust its package.** The
+  `nexus-kit-*` name filter stops accidental/transitive guides but is not a
+  trust boundary — anyone can publish `nexus-kit-evil`, and a guide is
+  instructions an AI assistant will follow. Satellites are now opt-in:
+  `nexus-kit sync-ai --trust <pkg>` records consent in
+  `.ai/trusted-guides.txt` (the kernel is trusted implicitly); untrusted
+  packages are listed, not written.
+- **A customized legacy cheat sheet is preserved on migration.** Adopting
+  an unstamped pre-0.4.10 `.ai/nexus-kit.md` now keeps the previous content
+  as `.ai/nexus-kit.md.orig` before overwriting, so user edits are never
+  lost silently.
+
 ## [0.4.11] — 2026-07-18
 
 Hardening pass on `sync-ai` after an external review reproduced three design

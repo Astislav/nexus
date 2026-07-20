@@ -105,8 +105,10 @@ the HttpService contract, the `Injected` bridge, and the anti-patterns to
 avoid. Point your agent at it before it touches the HTTP layer.
 
 The guide also ships inside the wheel: after installing this package, run
-`uv run nexus-kit sync-ai` from your app root and it lands in your app's
-`.ai/nexus-kit-fastapi.md`, where your assistant reads it automatically.
+`uv run nexus-kit sync-ai --trust nexus-kit-fastapi` from your app root and it
+lands in your app's `.ai/nexus-kit-fastapi.md`, where your assistant reads it
+automatically. (A guide is instructions your assistant follows, so mirroring a
+satellite is an explicit one-time opt-in; requires nexus-kit >= 0.4.12.)
 
 ## License
 
