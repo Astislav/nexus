@@ -60,10 +60,10 @@ jobs:
           echo "$out" | grep -q "tick #1" || { echo "ticker did not tick"; exit 1; }
           echo "$out" | grep -q "stopped after" || { echo "lifecycle did not stop cleanly"; exit 1; }
       - name: guides builds the atlas from the app venv, and --check is stable
-        # A `nexus-kit` whose OWN environment lacks the satellite must still
-        # discover it in the APP's .venv (via the nexus_kit.ai_guides entry
-        # point) and write the atlas. The CLI lives in an isolated core-only env;
-        # the app carries the satellite in its own .venv.
+        # A `nexus-kit` whose OWN environment lacks the satellite must still read
+        # it from the APP's .venv (allowlisted in the kernel) and write the atlas.
+        # The CLI lives in an isolated core-only env; the app carries the
+        # satellite in its own .venv.
         shell: bash
         run: |
           TOOLENV="$RUNNER_TEMP/toolenv"

@@ -445,8 +445,8 @@ don't read it from the repo; `nexus-kit guides` writes it into a local **atlas**
 uv run nexus-kit guides   # after adding, upgrading or removing any nexus-kit package
 ```
 
-This discovers every installed nexus-kit package (each declares the
-`nexus_kit.ai_guides` entry point) in the app's `.venv` and writes `.nexus-kit/`:
+This reads the guide of each **allowlisted** nexus-kit package installed in the
+app's `.venv` and writes `.nexus-kit/`:
 
 - `.nexus-kit/map.md` — a small, always-on index: one line per package with a
   *read-this-when* cue and a pointer to its full guide.
@@ -459,14 +459,17 @@ satellites don't bloat the context — progressive disclosure, the same shape as
 Skills. `nexus-kit new` sets the mount up for fresh apps; the tooling **never**
 writes your agent files.
 
-**This is not a security feature.** A guide is documentation shipped by a package
-you installed, and any installed package can already run arbitrary code — the
-atlas is no trust boundary and adds no attack surface. Two narrow facts, stated
-plainly: `guides` reads a guide from the package's files **without importing it**
-(building the atlas runs no package code), and the entry point keeps unrelated
-packages' stray files out. Vet your dependencies like any other code. Commit
-`.nexus-kit/` so it travels with the repo; `uv run nexus-kit guides --check`
-fails in CI if it is stale.
+**The gate against a malicious guide is a hard allowlist in the kernel.** `guides`
+reads a guide **only** from packages whose dist name is in
+`_ALLOWED_GUIDE_PACKAGES` (the framework author's blessing, shipped in the kernel
+wheel) — so a rogue `nexus-kit-evil`, or any unrelated dependency, cannot get its
+text into your agent through the atlas (PyPI names are unique, so no one can
+publish under a blessed name). Building the atlas also **never imports** a package
+(the guide is read as a file), so no package code runs on `guides`. What this does
+*not* cover: installing any package already runs its code (build hooks, import) —
+that exposure is the package manager's, not the atlas's — so vet dependencies as
+ever. Commit `.nexus-kit/` so it travels with the repo; `uv run nexus-kit guides
+--check` fails in CI if it is stale.
 
 ## License
 

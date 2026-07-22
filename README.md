@@ -144,16 +144,18 @@ Every package in this repo carries a machine-oriented
 [`.ai/guide.md`](nexus-kit/.ai/guide.md) — API contract, conventions,
 anti-patterns — updated **in the same commit** as the API it describes, and
 shipped **inside the wheel**. In a consumer app, `uv run nexus-kit guides`
-discovers every installed nexus-kit package (via a declared entry point) and
-writes an **atlas** into `.nexus-kit/`: a small always-on `map.md` — indexed
-with a *read-this-when* cue per package — plus one on-demand guide each. You
-mount just the map in your own AGENTS.md; the agent opens a specific guide when
-it's relevant, so ten satellites don't bloat the context. It's plain markdown and
-the standard AGENTS.md convention — no editor lock-in — and the tooling never
-edits your AGENTS.md. (No security theatre either: a guide is just docs from a
-package you installed, and an installed package can already run code, so vet your
-dependencies as you would any code; the atlas adds no attack surface.) Frameworks
-used to be documented for humans; this one is documented for the pair of you.
+collects the guides of the installed nexus-kit packages and writes an **atlas**
+into `.nexus-kit/`: a small always-on `map.md` — indexed with a *read-this-when*
+cue per package — plus one on-demand guide each. You mount just the map in your
+own AGENTS.md; the agent opens a specific guide when it's relevant, so ten
+satellites don't bloat the context. It's plain markdown and the standard
+AGENTS.md convention — no editor lock-in — and the tooling never edits your
+AGENTS.md. The gate against a malicious guide is a hard one: nexus-kit reads a
+guide **only** from packages on an allowlist baked into the kernel, so a rogue
+`nexus-kit-evil` cannot ride the atlas into your agent, and building it never
+imports a package. (Not magic dust: installing any package already runs its code
+— vet dependencies as ever.) Frameworks used to be documented for humans; this
+one is documented for the pair of you.
 
 ## Principles
 
@@ -201,9 +203,10 @@ Releases are tag-driven: `v1.2.3` publishes `nexus-kit`;
 PyPI dist (dir = dist name = tag prefix), containing: `pyproject.toml`,
 `src/<import_name>/`, `tests/`, `README.md` (with a *For AI assistants*
 section), `CHANGELOG.md`, `LICENSE`, and **`.ai/guide.md`** — force-included
-into the wheel as `<import_name>/.ai/guide.md` and declared via a
-`[project.entry-points."nexus_kit.ai_guides"]` entry so `nexus-kit guides`
-discovers it for the consumer app's `.nexus-kit/` atlas. Plus one pending
+into the wheel as `<import_name>/.ai/guide.md`. To admit it into the consumer
+app's `.nexus-kit/` atlas, add its dist name to `_ALLOWED_GUIDE_PACKAGES` in
+`nexus_kit/cli.py` and release the kernel — that allowlist entry is the vouch
+that lets `nexus-kit guides` read the package's guide. Plus one pending
 publisher on PyPI and a row in the table above.
 
 **AI-guide discipline**: `.ai/guide.md` changes in the same commit as the

@@ -411,22 +411,37 @@ def _build(copy_env: bool) -> None:
 # Why this shape:
 #   - Progressive disclosure (the Skills model): the map is tiny and always in
 #     context; full guides are read on demand, so N satellites don't bloat it.
-#   - Discovery via entry points, not a name guess — a package opts in explicitly,
-#     which just keeps unrelated packages' stray `.ai/guide.md` files out.
+#   - Discovery is gated by `_ALLOWED_GUIDE_PACKAGES`, the author's allowlist baked
+#     into core — not a name guess, not an open entry-point registry.
 #
-# NOT a security feature: a guide is documentation shipped by a package you chose
-# to install, and any installed package can already run arbitrary code — the atlas
-# adds no attack surface and is no trust boundary. Two narrow, honest facts only:
-# building the atlas reads the guide from the package's files WITHOUT importing it
-# (no package code runs), and the entry point keeps stray files out. Vet your
-# dependencies like any other code. The atlas is committed so it travels with the
-# repo — that is a convenience, not a safeguard.
+# What the allowlist DOES protect: nexus-kit will not carry the guide text of a
+# package the author did not bless into an agent's context, so a random or
+# malicious `nexus-kit-*` package's prompt cannot ride the atlas to the agent.
+# Building the atlas also never imports a package (the guide is read as a file),
+# so no package code runs on `guides`.
+# What it does NOT protect: installing any package already runs its code (build
+# hooks, import) — that exposure is the package manager's and the app's, not
+# nexus-kit's; and a blessed package compromised at its own source would ship a
+# malicious guide (supply-chain on the author's own name). Vet dependencies like
+# any code. The atlas is committed so it travels with the repo — a convenience.
 
 _ATLAS_DIR = Path(".nexus-kit")
 _GUIDES_DIR = _ATLAS_DIR / "guides"
 _MAP_FILE = _ATLAS_DIR / "map.md"
-_AI_GUIDES_GROUP = "nexus_kit.ai_guides"
 _DO_NOT_EDIT = "do not edit; re-run `nexus-kit guides` to refresh"
+
+# The gate. nexus-kit reads an `.ai/guide.md` ONLY from a package whose dist name
+# is here — the framework author's blessing, shipped in this wheel. A package not
+# on this list (an unrelated dependency, or a malicious `nexus-kit-evil`) never
+# has its guide read, so nexus-kit will not carry its text into an agent's
+# context. PyPI names are unique, so no one can publish under a name already here.
+# Adding a satellite means adding its dist name here and releasing core — that
+# release IS the vouch. (Consumers cannot yet allowlist their OWN private
+# packages; that would be a deliberate future opt-in, not an open door.)
+_ALLOWED_GUIDE_PACKAGES = frozenset({
+    "nexus-kit",
+    "nexus-kit-fastapi",
+})
 
 
 class _Guide(NamedTuple):
@@ -469,24 +484,28 @@ def _distributions(search_path: list[str] | None):
 
 
 def _discover_guides(search_path: list[str] | None) -> list[_Guide]:
-    """Every installed distribution that declares the `nexus_kit.ai_guides` entry
-    point AND ships an `.ai/guide.md`, read from the scanned environment (the app
-    venv). The entry point is the discovery gate; the guide file is located via the
-    distribution's file list, so we never import the (possibly untrusted) package."""
+    """Read the `.ai/guide.md` of every ALLOWLISTED package installed in the
+    scanned environment (the app venv). The allowlist (`_ALLOWED_GUIDE_PACKAGES`)
+    is the gate: nexus-kit only ever carries the guide text of packages its author
+    blessed, so an unrelated or malicious `nexus-kit-*` package cannot get its text
+    into an agent's context through the atlas. The guide is located via the
+    distribution's file list — we never import the package (no package code runs)."""
     guides: list[_Guide] = []
     for dist in _distributions(search_path):
-        if not list(dist.entry_points.select(group=_AI_GUIDES_GROUP)):
-            continue  # not a nexus-kit guide provider
+        name = dist.metadata["Name"]
+        if _normalize(name) not in _ALLOWED_GUIDE_PACKAGES:
+            continue  # not author-blessed — its guide is never read
         text = None
         for file in dist.files or []:
+            if ".." in file.parts:
+                continue  # never follow a RECORD path outside the package's own tree
             if file.parts[-2:] == (".ai", "guide.md"):
                 located = Path(str(file.locate()))
                 if located.is_file():
                     text = located.read_text(encoding="utf-8")
                 break
         if text is None:
-            continue  # declared the entry point but shipped no guide
-        name = dist.metadata["Name"]
+            continue  # allowlisted but ships no guide
         summary = (dist.metadata.get("Summary") or "").strip()
         guides.append(_Guide(name, dist.version, summary, text))
     # kernel first, then alphabetical
@@ -654,10 +673,10 @@ def _print_intro() -> None:
     print("  nexus-kit build       build a standalone executable from the spec")
     print("  nexus-kit guides      build .nexus-kit/ — an AI-guide atlas for your coding agent")
     print("")
-    print("About the guides: every installed nexus-kit package ships a machine-readable")
-    print("guide. `nexus-kit guides` collects the ones in your project into .nexus-kit/ (a")
-    print("small map + one guide per package) and tells you how to point your AGENTS.md at")
-    print("it, so an agent reads the right guide on demand. Re-run it after adding a package.")
+    print("About the guides: each nexus-kit package ships a machine-readable guide.")
+    print("`nexus-kit guides` collects the ones installed in your project into .nexus-kit/")
+    print("(a small map + one guide per package) and tells you how to point your AGENTS.md")
+    print("at it, so an agent reads the right guide on demand. Re-run it after adding a package.")
     print("")
     print("Docs: https://github.com/Astislav/nexus")
 

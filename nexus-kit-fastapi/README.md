@@ -104,11 +104,11 @@ The package ships a compact machine-oriented reference —
 the HttpService contract, the `Injected` bridge, and the anti-patterns to
 avoid. Point your agent at it before it touches the HTTP layer.
 
-The guide ships inside the wheel and declares the `nexus_kit.ai_guides` entry
-point: after installing this package, `uv run nexus-kit guides` (nexus-kit
-0.5+) discovers it and writes it into your app's `.nexus-kit/guides/nexus-kit-fastapi.md`,
-indexed by `.nexus-kit/map.md` (which your AGENTS.md mounts). Your assistant
-reads it on demand when working on the HTTP layer.
+The guide ships inside the wheel, and this package is on the kernel's guide
+allowlist: after installing it, `uv run nexus-kit guides` (nexus-kit 0.5+) reads
+it and writes it into your app's `.nexus-kit/guides/nexus-kit-fastapi.md`, indexed
+by `.nexus-kit/map.md` (which your AGENTS.md mounts). Your assistant reads it on
+demand when working on the HTTP layer.
 
 ## License
 

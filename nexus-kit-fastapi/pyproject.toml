@@ -44,14 +44,11 @@ Repository = "https://github.com/Astislav/nexus"
 Issues = "https://github.com/Astislav/nexus/issues"
 Changelog = "https://github.com/Astislav/nexus/blob/master/nexus-kit-fastapi/CHANGELOG.md"
 
-[project.entry-points."nexus_kit.ai_guides"]
-# How `nexus-kit sync-ai` discovers this package's guide (see the kernel's group).
-guide = "nexus_kit_fastapi"
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/nexus_kit_fastapi"]
 
 [tool.hatch.build.targets.wheel.force-include]
-# The AI guide ships inside the wheel; `nexus-kit sync-ai` reads it from the
-# installed package and writes it into the app's .nexus-kit/ atlas.
+# The AI guide ships inside the wheel; `nexus-kit guides` reads it from the
+# installed package and writes it into the app's .nexus-kit/ atlas. This package
+# is on the kernel's allowlist (_ALLOWED_GUIDE_PACKAGES) — that is what admits it.
 ".ai/guide.md" = "nexus_kit_fastapi/.ai/guide.md"

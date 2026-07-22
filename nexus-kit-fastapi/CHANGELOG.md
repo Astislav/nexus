@@ -2,10 +2,10 @@
 
 ## [0.3.0] — 2026-07-22
 
-- Declares the `nexus_kit.ai_guides` entry point so `nexus-kit guides` (0.5+)
-  discovers this package's guide and writes it into the app's `.nexus-kit/`
-  atlas, with a `<!-- when: … -->` cue for the map. Requires **nexus-kit >= 0.5,
-  < 0.6**. No change to `HttpService` / `Injected` runtime behaviour.
+- On the kernel's guide allowlist (0.5+), so `nexus-kit guides` reads this
+  package's guide and writes it into the app's `.nexus-kit/` atlas, with a
+  `<!-- when: … -->` cue for the map. Requires **nexus-kit >= 0.5, < 0.6**. No
+  change to `HttpService` / `Injected` runtime behaviour.
 
 ## [0.2.5] — 2026-07-21
 

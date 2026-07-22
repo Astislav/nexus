@@ -40,16 +40,11 @@ Changelog = "https://github.com/Astislav/nexus/blob/master/nexus-kit/CHANGELOG.m
 [project.scripts]
 nexus-kit = "nexus_kit.cli:main"
 
-[project.entry-points."nexus_kit.ai_guides"]
-# Declaring this group is how `nexus-kit sync-ai` discovers a package's AI guide
-# (the kernel is just another provider). The value names the import package that
-# contains `.ai/guide.md`; sync-ai locates the file without importing the module.
-guide = "nexus_kit"
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/nexus_kit"]
 
 [tool.hatch.build.targets.wheel.force-include]
-# The AI guide ships inside the wheel so `nexus-kit sync-ai` can read it from the
-# installed package (version-matched), not from the CLI's own template.
+# The AI guide ships inside the wheel so `nexus-kit guides` can read it from the
+# installed package (version-matched). Discovery is gated by the author's
+# allowlist in nexus_kit.cli (_ALLOWED_GUIDE_PACKAGES), not by an entry point.
 ".ai/guide.md" = "nexus_kit/.ai/guide.md"
