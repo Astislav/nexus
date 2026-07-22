@@ -403,10 +403,10 @@ def _build(copy_env: bool) -> None:
 # (the `guides` command; `sync-ai` is kept as an alias)
 #
 # Every nexus-kit package (kernel and satellites) ships an `.ai/guide.md` inside
-# its wheel and declares the `nexus_kit.ai_guides` entry point. `guides` reads
-# those from the APPLICATION's environment and writes a small, always-on MAP plus
-# one on-demand guide per package into `.nexus-kit/`. The user mounts ONLY the map
-# in their own AGENTS.md/CLAUDE.md (one stable line); this tool never edits those.
+# its wheel. `guides` reads those — for packages on the allowlist below — from the
+# APPLICATION's environment and writes a small, always-on MAP plus one on-demand
+# guide per package into `.nexus-kit/`. The user mounts ONLY the map in their own
+# AGENTS.md/CLAUDE.md (one stable line); this tool never edits those.
 #
 # Why this shape:
 #   - Progressive disclosure (the Skills model): the map is tiny and always in
@@ -436,8 +436,9 @@ _DO_NOT_EDIT = "do not edit; re-run `nexus-kit guides` to refresh"
 # has its guide read, so nexus-kit will not carry its text into an agent's
 # context. PyPI names are unique, so no one can publish under a name already here.
 # Adding a satellite means adding its dist name here and releasing core — that
-# release IS the vouch. (Consumers cannot yet allowlist their OWN private
-# packages; that would be a deliberate future opt-in, not an open door.)
+# release IS the vouch. (A per-app opt-in for the consumer's OWN packages was
+# considered and rejected: a guide is only useful if its package follows nexus-kit
+# conventions, which arbitrary packages don't — so the knob served ~nobody.)
 _ALLOWED_GUIDE_PACKAGES = frozenset({
     "nexus-kit",
     "nexus-kit-fastapi",
@@ -560,7 +561,7 @@ def _mount_status() -> str | None:
 
 def _migrate_legacy_layout() -> None:
     """Remove the 0.4.x layout (copied guides + trust file + quarantine) that the
-    entry-point atlas replaces. Only our own generated artifacts are touched."""
+    .nexus-kit atlas replaces. Only our own generated artifacts are touched."""
     removed: list[str] = []
     ai = Path(".ai")
     if ai.is_dir():

@@ -24,9 +24,9 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    # Floor is the kernel with the entry-point atlas model (`sync-ai` builds
-    # .nexus-kit/ from the `nexus_kit.ai_guides` group). Upper bound: 0.x minors
-    # may break (see the kernel's semver note).
+    # Floor is the kernel with the .nexus-kit atlas model, under which
+    # `nexus-kit guides` reads this package's guide (it is on the kernel's
+    # allowlist). Upper bound: 0.x minors may break (see the kernel's semver note).
     "nexus-kit>=0.5,<0.6",
     "fastapi>=0.115",
     "uvicorn>=0.30",

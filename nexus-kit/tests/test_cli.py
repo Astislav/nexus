@@ -160,7 +160,7 @@ def test_build_cleans_stale_dist(tmp_path, monkeypatch):
     assert not (proj / "dist" / "old-garbage.exe").exists()
 
 
-# --- sync-ai: the .nexus-kit atlas built from installed packages' entry points ---
+# --- guides: the .nexus-kit atlas built from allowlisted installed packages ---
 
 def sync_ai(proj, monkeypatch, *extra):
     monkeypatch.chdir(proj)
