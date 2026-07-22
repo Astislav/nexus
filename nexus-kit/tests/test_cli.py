@@ -287,9 +287,9 @@ def test_sync_ai_refreshes_on_upgrade(tmp_path, monkeypatch):
     assert "new contract" in mirrored and "old contract" not in mirrored
 
 
-def test_sync_ai_quarantines_an_orphaned_guide_by_default(tmp_path, monkeypatch):
-    """A guide whose package is gone must leave .ai/*.md (so the assistant stops
-    reading it) but must not be deleted without --prune."""
+def test_sync_ai_quarantines_an_orphaned_guide_outside_ai(tmp_path, monkeypatch):
+    """A guide whose package is gone must leave .ai/ entirely (so no recursive
+    reader of .ai/ opens it) but must not be deleted without --prune."""
     proj = scaffold(tmp_path, monkeypatch, "orphaned")
     monkeypatch.setattr(
         cli, "_installed_ai_guides", lambda _p: {"nexus-kit-fastapi": ("0.9.9", "contract\n")}
@@ -299,12 +299,15 @@ def test_sync_ai_quarantines_an_orphaned_guide_by_default(tmp_path, monkeypatch)
 
     monkeypatch.setattr(cli, "_installed_ai_guides", lambda _p: {})
     sync_ai(proj, monkeypatch)  # no --prune
-    assert not (proj / ".ai" / "nexus-kit-fastapi.md").exists()          # out of the read path
-    assert (proj / ".ai" / "nexus-kit-fastapi.md.untrusted").exists()    # but preserved
-    assert (proj / ".ai" / "nexus-kit.md").exists()                      # the kernel cheat sheet stays
+    assert not (proj / ".ai" / "nexus-kit-fastapi.md").exists()                       # out of .ai/
+    assert not list((proj / ".ai").glob("*.untrusted"))                               # nothing left inside .ai/
+    assert (proj / ".nexus-kit-quarantine" / "nexus-kit-fastapi.md").exists()         # preserved, outside .ai/
+    assert (proj / ".ai" / "nexus-kit.md").exists()                                   # the kernel cheat sheet stays
 
 
-def test_sync_ai_prune_deletes_instead_of_quarantining(tmp_path, monkeypatch):
+def test_sync_ai_prune_deletes_a_quarantined_guide(tmp_path, monkeypatch):
+    """The review's bug: after a guide is quarantined, a later --prune left it
+    forever because cleanup only scanned .ai/*.md. --prune must empty the store."""
     proj = scaffold(tmp_path, monkeypatch, "pruning")
     monkeypatch.setattr(
         cli, "_installed_ai_guides", lambda _p: {"nexus-kit-fastapi": ("0.9.9", "contract\n")}
@@ -312,15 +315,30 @@ def test_sync_ai_prune_deletes_instead_of_quarantining(tmp_path, monkeypatch):
     sync_ai(proj, monkeypatch, "--trust", "nexus-kit-fastapi")
 
     monkeypatch.setattr(cli, "_installed_ai_guides", lambda _p: {})
-    sync_ai(proj, monkeypatch, "--prune")
+    sync_ai(proj, monkeypatch)  # quarantines to .nexus-kit-quarantine/
+    assert (proj / ".nexus-kit-quarantine" / "nexus-kit-fastapi.md").exists()
+
+    sync_ai(proj, monkeypatch, "--prune")  # must actually delete the quarantined file
+    assert not (proj / ".nexus-kit-quarantine").exists()
+
+
+def test_sync_ai_prune_deletes_live_guide_without_quarantining(tmp_path, monkeypatch):
+    proj = scaffold(tmp_path, monkeypatch, "livedelete")
+    monkeypatch.setattr(
+        cli, "_installed_ai_guides", lambda _p: {"nexus-kit-fastapi": ("0.9.9", "contract\n")}
+    )
+    sync_ai(proj, monkeypatch, "--trust", "nexus-kit-fastapi")
+
+    monkeypatch.setattr(cli, "_installed_ai_guides", lambda _p: {})
+    sync_ai(proj, monkeypatch, "--prune")  # package gone, prune from the start
     assert not (proj / ".ai" / "nexus-kit-fastapi.md").exists()
-    assert not (proj / ".ai" / "nexus-kit-fastapi.md.untrusted").exists()  # deleted for real
+    assert not (proj / ".nexus-kit-quarantine").exists()  # never quarantined, just deleted
 
 
 def test_sync_ai_quarantines_an_installed_but_untrusted_guide(tmp_path, monkeypatch):
-    """The review's scenario: a guide auto-mirrored by 0.4.10/0.4.11 (before the
-    trust gate) whose package is still installed but not on the trust list must
-    be moved out of the read path, not left where the agent keeps reading it."""
+    """The earlier review's scenario: a guide auto-mirrored by 0.4.10/0.4.11
+    (before the trust gate) whose package is still installed but not trusted must
+    move out of .ai/, not stay where the agent keeps reading it."""
     proj = scaffold(tmp_path, monkeypatch, "leftover")
     site = app_venv_site(proj)
     write_fake_dist(site, "nexus-kit-fastapi", "0.2.4", "# packaged guide\n")
@@ -331,8 +349,21 @@ def test_sync_ai_quarantines_an_installed_but_untrusted_guide(tmp_path, monkeypa
 
     sync_ai(proj, monkeypatch)  # installed, but never trusted here
 
-    assert not (proj / ".ai" / "nexus-kit-fastapi.md").exists()        # quarantined out
-    assert (proj / ".ai" / "nexus-kit-fastapi.md.untrusted").exists()  # not lost
+    assert not (proj / ".ai" / "nexus-kit-fastapi.md").exists()                # quarantined out of .ai/
+    assert (proj / ".nexus-kit-quarantine" / "nexus-kit-fastapi.md").exists()  # not lost
+
+
+def test_sync_ai_migrates_legacy_in_ai_quarantine_out(tmp_path, monkeypatch):
+    """A `<name>.md.untrusted` left by 0.4.13 inside .ai/ must be moved out."""
+    proj = scaffold(tmp_path, monkeypatch, "legacyquar")
+    legacy = proj / ".ai" / "nexus-kit-fastapi.md.untrusted"
+    legacy.write_text(cli._stamp("nexus-kit-fastapi", "0.2.4") + "retired body\n", encoding="utf-8")
+    monkeypatch.setattr(cli, "_installed_ai_guides", lambda _p: {})
+
+    sync_ai(proj, monkeypatch)
+
+    assert not legacy.exists()  # no longer inside .ai/
+    assert (proj / ".nexus-kit-quarantine" / "nexus-kit-fastapi.md").exists()
 
 
 def test_sync_ai_never_touches_unstamped_files(tmp_path, monkeypatch):

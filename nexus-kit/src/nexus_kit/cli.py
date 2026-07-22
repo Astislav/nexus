@@ -47,6 +47,7 @@ __pycache__/
 .env
 dist/
 build/
+.nexus-kit-quarantine/
 .pytest_cache/
 .ruff_cache/
 .idea/
@@ -294,8 +295,8 @@ after you trust it once: `uv run nexus-kit sync-ai --trust nexus-kit-fastapi` (t
 kernel is trusted implicitly; the trust list lives in `.ai/trusted-guides.txt`).
 Managed files carry the header stamp above; your own `.ai/*.md` files are never
 touched. A plain run only creates/updates and quarantines the guide of any package
-that is uninstalled or no longer trusted (moved to `<name>.md.untrusted`, out of the
-files you read); `--prune` deletes those instead.
+that is uninstalled or no longer trusted — moved to `.nexus-kit-quarantine/` (outside
+`.ai/`, so nothing reads it); `--prune` deletes those and empties the quarantine.
 
 ## What nexus does NOT provide (you hand-roll these)
 
@@ -524,6 +525,12 @@ _SYNC_STAMP = re.compile(r"^<!-- nexus-kit sync-ai: (?P<dist>\S+) (?P<version>\S
 # so sync-ai adopts and refreshes it instead of treating it as user-owned.
 _LEGACY_KERNEL_SHEET_HEADER = "# nexus-kit — quick reference"
 
+# Retired guides live HERE, deliberately outside .ai/: CLAUDE.md tells agents to
+# read the guides under .ai/, so a quarantine kept inside .ai/ (even as
+# *.md.untrusted) is still reachable by a recursive reader. This directory is not
+# a guide store the assistant is pointed at.
+_QUARANTINE_DIR = Path(".nexus-kit-quarantine")
+
 _TRUST_FILE = Path(".ai") / "trusted-guides.txt"
 _TRUST_HEADER = (
     "# Packages whose AI guides `nexus-kit sync-ai` may mirror into .ai/.\n"
@@ -712,11 +719,11 @@ def _sync_ai(prune: bool, trust: list[str]) -> None:
     for name, (dist_version, content) in sorted(guides.items()):
         _write_guide(ai_dir, name, dist_version, content)
 
-    # A guide we are no longer mirroring must not stay in .ai/*.md where the
-    # assistant keeps reading it — this includes a satellite that is installed
-    # but no longer trusted (e.g. auto-mirrored by 0.4.10/0.4.11 before the trust
-    # gate existed). Move such stamped files out of the read path by default
-    # (quarantine, never silently delete); --prune deletes them for real.
+    # A guide we are no longer mirroring must not stay in .ai/ where the assistant
+    # keeps reading it — this includes a satellite that is installed but no longer
+    # trusted (e.g. auto-mirrored by 0.4.10/0.4.11 before the trust gate existed).
+    # Retire such stamped files out of .ai/ by default (never silently delete);
+    # --prune deletes them for real.
     handled = {_normalize(name) for name in guides}
     for path in sorted(ai_dir.glob("*.md")):
         if _normalize(path.stem) in handled:
@@ -726,6 +733,23 @@ def _sync_ai(prune: bool, trust: list[str]) -> None:
         installed = any(_normalize(n) == _normalize(path.stem) for n in discovered)
         reason = "installed but not trusted" if installed else "package not installed"
         _retire(path, prune, reason)
+
+    # 0.4.13 quarantined INSIDE .ai/ as `<name>.md.untrusted`; migrate those out.
+    for legacy in sorted(ai_dir.glob("*.md.untrusted")):
+        if prune:
+            legacy.unlink()
+        else:
+            _QUARANTINE_DIR.mkdir(exist_ok=True)
+            legacy.replace(_QUARANTINE_DIR / legacy.name[: -len(".untrusted")])
+            print(f"  moved {legacy} into {_QUARANTINE_DIR}/ (quarantine now lives outside .ai/)")
+
+    # --prune also empties the quarantine store — the earlier fix left retired
+    # files with nothing that could ever delete them (they are no longer *.md).
+    if prune and _QUARANTINE_DIR.is_dir():
+        import shutil
+
+        shutil.rmtree(_QUARANTINE_DIR)
+        print(f"  pruned the quarantine store {_QUARANTINE_DIR}/")
 
     if untrusted:
         print("")
@@ -742,15 +766,16 @@ def _sync_ai(prune: bool, trust: list[str]) -> None:
 
 def _retire(path: Path, prune: bool, reason: str) -> None:
     """Get a no-longer-mirrored guide out of the assistant's read path.
-    Default: quarantine to `<name>.md.untrusted` (kept, but not a `*.md` guide).
+    Default: move it into the quarantine dir (outside .ai/, kept for inspection).
     With --prune: delete outright."""
     if prune:
         path.unlink()
         print(f"  pruned {path} ({reason})")
     else:
-        quarantine = path.with_name(path.name + ".untrusted")
-        path.replace(quarantine)  # atomic move; out of the *.md glob the agent reads
-        print(f"  quarantined {path} -> {quarantine.name} ({reason}; --prune to delete)")
+        _QUARANTINE_DIR.mkdir(exist_ok=True)
+        target = _QUARANTINE_DIR / path.name
+        path.replace(target)  # atomic move; outside .ai/ entirely, so no agent reads it
+        print(f"  quarantined {path} -> {target} ({reason}; --prune to delete)")
 
 
 def main() -> None:

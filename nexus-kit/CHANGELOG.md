@@ -3,6 +3,28 @@
 All notable changes to nexus-kit. Versioning: [semver](https://semver.org/) —
 in 0.x, breaking changes bump the minor version.
 
+## [0.4.14] — 2026-07-21
+
+Quarantine lifecycle finished (0.4.13's quarantine was half-built; both edges
+reproduced before fixing):
+
+- **`--prune` now empties the quarantine.** 0.4.13 moved a retired guide to
+  `<name>.md.untrusted` and told you `--prune` would delete it — but cleanup
+  only scanned `.ai/*.md`, so the renamed file was never found again and
+  `--prune` was a no-op on it. Quarantined guides are now deleted for real.
+- **Quarantine moved OUT of `.ai/`.** A guide kept inside `.ai/` (even as
+  `*.md.untrusted`) is still reachable by an agent told to read the guides
+  under `.ai/`. Retired guides now go to `.nexus-kit-quarantine/` at the app
+  root — outside the tree the assistant is pointed at. A `<name>.md.untrusted`
+  left by 0.4.13 is migrated there automatically; the scaffold gitignores the
+  new directory.
+
+Not a bug, restated for the record: with a global CLI whose version differs
+from the app's kernel, the cheat-sheet body is still the CLI's (only the pin
+and an in-band WARNING are the app's) — running via `uv run nexus-kit sync-ai`
+remains the way to get a body that matches too. This is inherent: a 0.4.14 CLI
+cannot reconstruct another version's guide.
+
 ## [0.4.13] — 2026-07-21
 
 Third `sync-ai` hardening round; the CLI parser replaced wholesale. Each
