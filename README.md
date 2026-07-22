@@ -143,16 +143,17 @@ your functions grow threads, sockets and a shutdown order.
 Every package in this repo carries a machine-oriented
 [`.ai/guide.md`](nexus-kit/.ai/guide.md) — API contract, conventions,
 anti-patterns — updated **in the same commit** as the API it describes, and
-shipped **inside the wheel**. In a consumer app, `uv run nexus-kit sync-ai`
+shipped **inside the wheel**. In a consumer app, `uv run nexus-kit guides`
 discovers every installed nexus-kit package (via a declared entry point) and
-writes an **atlas** into `.nexus-kit/`: a small always-on `map.md` plus one
-on-demand guide per package. You mount just the map in your own AGENTS.md —
-the agent reads the specific guide when it's relevant, so ten satellites don't
-bloat the context. It's a local, version-matched "Context7" for your installed
-subset, and because the atlas is committed, a new or changed guide shows up in
-`git diff` — that review is the trust boundary, no magic. The tooling never
-edits your AGENTS.md/CLAUDE.md. Frameworks used to be documented for humans;
-this one is documented for the pair of you.
+writes an **atlas** into `.nexus-kit/`: a small always-on `map.md` — indexed
+with a *read-this-when* cue per package — plus one on-demand guide each. You
+mount just the map in your own AGENTS.md; the agent opens a specific guide when
+it's relevant, so ten satellites don't bloat the context. Because the atlas is
+committed, a slipped-in guide shows up in `git diff` — it makes a bad guide
+**visible**, not blocked, so keep `.nexus-kit/` tracked and read the diff. The
+tooling never edits your AGENTS.md/CLAUDE.md, and it's plain markdown — no
+editor lock-in. Frameworks used to be documented for humans; this one is
+documented for the pair of you.
 
 ## Principles
 
@@ -201,7 +202,7 @@ PyPI dist (dir = dist name = tag prefix), containing: `pyproject.toml`,
 `src/<import_name>/`, `tests/`, `README.md` (with a *For AI assistants*
 section), `CHANGELOG.md`, `LICENSE`, and **`.ai/guide.md`** — force-included
 into the wheel as `<import_name>/.ai/guide.md` and declared via a
-`[project.entry-points."nexus_kit.ai_guides"]` entry so `nexus-kit sync-ai`
+`[project.entry-points."nexus_kit.ai_guides"]` entry so `nexus-kit guides`
 discovers it for the consumer app's `.nexus-kit/` atlas. Plus one pending
 publisher on PyPI and a row in the table above.
 

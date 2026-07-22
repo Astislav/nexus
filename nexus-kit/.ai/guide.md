@@ -1,7 +1,15 @@
+<!-- when: bootstrapping an app, wiring DI, defining typed config, adding a service to the lifecycle, logging, or resolving PyInstaller-safe paths -->
 # nexus-kit — AI Agent Guide
 
 Context for AI assistants working in projects built with nexus-kit
 (PyPI dist `nexus-kit`, import `nexus_kit`).
+
+**Keeping these guides current:** every nexus-kit package ships its own guide;
+`uv run nexus-kit guides` (re-run after `uv add`-ing, upgrading or removing any
+nexus-kit package) writes them into `.nexus-kit/` and indexes them in
+`.nexus-kit/map.md`, which the app's AGENTS.md mounts. The atlas is committed —
+the human reviews its diff, which is how a guide's contents are vetted. Treat the
+guides as the framework's machine contract; never hand-edit the generated copies.
 
 ## What nexus-kit is
 

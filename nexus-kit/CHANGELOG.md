@@ -10,23 +10,29 @@ package's guide into `.ai/`, gate with a trust file, quarantine orphans — was
 over-built (four hardening rounds of consequences from *copying*). It is
 replaced by a committed atlas discovered through entry points.
 
-- **`sync-ai` now builds `.nexus-kit/`**: a small, always-on `map.md` plus one
-  on-demand `guides/<pkg>.md` per package. You mount ONLY the map in your own
-  AGENTS.md/CLAUDE.md (one stable line); the guides are read on demand. This is
-  progressive disclosure (the Skills model) — N satellites no longer bloat the
-  agent's context.
+- **`nexus-kit guides` now builds `.nexus-kit/`** (the command is `guides`;
+  `sync-ai` is kept as an alias): a small, always-on `map.md` — indexed with a
+  *read-this-when* cue per package (from an optional `<!-- when: … -->` in each
+  guide) — plus one on-demand `guides/<pkg>.md`. You mount ONLY the map in your
+  own AGENTS.md/CLAUDE.md (one stable line); the guides are read on demand. This
+  is progressive disclosure (the Skills model) — N satellites no longer bloat the
+  agent's context. The mount is plain markdown (`Read .nexus-kit/map.md`), so it
+  is not tied to any one editor; Claude Code can `@`-import it.
 - **Discovery via the `nexus_kit.ai_guides` entry point**, not a name guess. A
   package opts in explicitly. The kernel is just another provider: it ships its
   own `guide.md` in the wheel, so the CLI no longer injects a version-pinned
   template — the whole global-CLI-vs-app version-mismatch class of bug is gone.
 - **The trust boundary is `git diff`.** The atlas is committed, so a new or
-  changed guide shows up in review before it can reach the agent. No trust file,
-  no quarantine, no `--prune`.
+  changed guide is *visible* in review before it reaches the agent — the entry
+  point stops accidental/transitive guides, but a package you deliberately
+  install and commit is on you (this trades the 0.4.x explicit trust list for
+  review; keep `.nexus-kit/` tracked). No trust file, no quarantine, no `--prune`.
 - **Never writes CLAUDE.md/AGENTS.md.** `nexus-kit new` bootstraps an AGENTS.md
-  that mounts the map; otherwise `sync-ai` only prints the one-line mount hint.
-- **`sync-ai --check`** for CI: fails if `.nexus-kit/` is out of date, writes
-  nothing.
-- **One-shot migration**: `sync-ai` removes the 0.4.x layout it finds (generated
+  that mounts the map (and a placeholder `.nexus-kit/map.md` so the mount is not
+  dangling before the first run); otherwise the command only prints the mount hint.
+- **`nexus-kit guides --check`** for CI: fails if `.nexus-kit/` is out of date,
+  writes nothing.
+- **One-shot migration**: `guides` removes the 0.4.x layout it finds (generated
   `.ai/*.md`, `trusted-guides.txt`, `.nexus-kit-quarantine/`); your own
   unstamped `.ai/` files are left alone. Update your mount from `.ai/` to
   `.nexus-kit/map.md`.

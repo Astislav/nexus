@@ -438,26 +438,33 @@ Domain logic, UI, data access — those belong in your app.
 The full framework guide ships inside the wheel:
 [`.ai/guide.md`](https://github.com/Astislav/nexus/blob/master/nexus-kit/.ai/guide.md)
 — API, conventions, lifecycle guarantees, what NOT to do. In a consumer app you
-don't read it from the repo; `sync-ai` writes it into a local **atlas**:
+don't read it from the repo; `nexus-kit guides` writes it into a local **atlas**
+(the `guides` command; `sync-ai` is kept as an alias):
 
 ```bash
-uv run nexus-kit sync-ai   # after adding, upgrading or removing any nexus-kit package
+uv run nexus-kit guides   # after adding, upgrading or removing any nexus-kit package
 ```
 
 This discovers every installed nexus-kit package (each declares the
 `nexus_kit.ai_guides` entry point) in the app's `.venv` and writes `.nexus-kit/`:
 
-- `.nexus-kit/map.md` — a small, always-on index: one line per package plus a
-  pointer to its full guide.
+- `.nexus-kit/map.md` — a small, always-on index: one line per package with a
+  *read-this-when* cue and a pointer to its full guide.
 - `.nexus-kit/guides/<pkg>.md` — the full guide per package, read **on demand**.
 
-Mount only the map in your own AGENTS.md (one line: `@.nexus-kit/map.md`); the
-agent opens a specific guide when it's relevant, so more satellites don't bloat
-the context — progressive disclosure, the same shape as Skills. `nexus-kit new`
-sets the mount up for fresh apps; the tooling **never** writes your
-AGENTS.md/CLAUDE.md. The atlas is committed, so a new or changed guide appears in
-`git diff` — reviewing that is the trust boundary (no allow-list, no magic).
-`uv run nexus-kit sync-ai --check` fails in CI if `.nexus-kit/` is stale.
+Mount only the map in your own AGENTS.md — a plain `Read .nexus-kit/map.md`
+instruction works in any agent, and Claude Code can `@.nexus-kit/map.md` to
+auto-import it. The agent opens a specific guide when relevant, so more
+satellites don't bloat the context — progressive disclosure, the same shape as
+Skills. `nexus-kit new` sets the mount up for fresh apps; the tooling **never**
+writes your AGENTS.md/CLAUDE.md.
+
+The atlas is committed on purpose: a new or changed guide appears in `git diff`,
+and reviewing it is the trust boundary — the entry point stops accidental or
+transitive guides, but it makes a deliberately-installed bad guide **visible,
+not blocked**, so keep `.nexus-kit/` tracked and read the diff. It trades the
+0.4.x explicit trust list for that review. `uv run nexus-kit guides --check`
+fails in CI if `.nexus-kit/` is stale.
 
 ## License
 
