@@ -2,8 +2,9 @@
 
 Context for AI assistants working in projects that use `nexus-kit-fastapi`
 (PyPI dist `nexus-kit-fastapi`, import `nexus_kit_fastapi`). Read the core
-guide first: nexus-kit's `.ai/guide.md`. (In a consumer app this file is
-mirrored here by `uv run nexus-kit sync-ai`; do not edit it by hand.)
+guide first: nexus-kit's guide. (In a consumer app this file is written into
+`.nexus-kit/guides/nexus-kit-fastapi.md` by `uv run nexus-kit sync-ai` and
+indexed by `.nexus-kit/map.md`; do not edit the generated copy by hand.)
 
 ## What it is
 

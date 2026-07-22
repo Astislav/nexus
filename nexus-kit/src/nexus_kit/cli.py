@@ -2,6 +2,7 @@ import re
 import sys
 from importlib.metadata import version
 from pathlib import Path
+from typing import NamedTuple
 
 
 _TEMPLATES: dict[str, str] = {
@@ -47,7 +48,6 @@ __pycache__/
 .env
 dist/
 build/
-.nexus-kit-quarantine/
 .pytest_cache/
 .ruff_cache/
 .idea/
@@ -185,124 +185,31 @@ class ConsoleReporter(ReporterInterface):
     "CLAUDE.md": """\
 # CLAUDE.md
 
-Guidance for Claude Code (and other AI assistants) working in this repository.
+Repository-specific notes for AI assistants. Keep this file thin.
 
-This app is built on the **nexus-kit** framework. The framework's API, the bootstrap
-pattern and the gotchas live in the guides under `.ai/` — read them before touching DI,
-config or the composition root (`app/config/di.py`). Every installed nexus-kit package
-maintains its own guide there: after adding, upgrading or removing one, run
-`uv run nexus-kit sync-ai` (trust a satellite once with `--trust <pkg>`; the kernel is
-trusted implicitly). Keep this file thin: put engineering discipline in `.ai/` and only
-repo-specific facts here.
+This app is built on the **nexus-kit** framework. The agent instructions live in
+**AGENTS.md**, which points at the nexus-kit guide map in `.nexus-kit/` (generated
+by `nexus-kit sync-ai`). Read AGENTS.md and the map it references before touching
+DI, config, lifecycle or the composition root (`app/config/di.py`).
 """,
-    ".ai/nexus-kit.md": """\
-<!-- nexus-kit sync-ai: nexus-kit {{NEXUS_REF}} — generated; refresh with `nexus-kit sync-ai`, do not edit by hand -->
-# nexus-kit — quick reference (how to build an app on this framework)
+    "AGENTS.md": """\
+# AGENTS.md
 
-Compact cheat-sheet for the **nexus-kit** framework (PyPI `nexus-kit`, import
-`nexus_kit`; github.com/Astislav/nexus), pinned to **~={{NEXUS_REF}}**. For depth: the
-framework's own `.ai/guide.md`, or the installed source at
-`.venv/Lib/site-packages/nexus_kit/`.
+Instructions for AI coding agents in this repository. **This file is yours** —
+edit it freely; the nexus-kit tooling never writes to it.
 
-## What it is
+This app is built on the **nexus-kit** framework. The full guide for each
+installed nexus-kit package is generated into `.nexus-kit/` by
+`nexus-kit sync-ai`, indexed by a small map. Read the map, then open the specific
+guide it points to when relevant — don't load them all.
 
-A tiny application bootstrap: a **DI container** (wraps `injector`) + a **config base**
-(wraps `pydantic-settings`) + **logging** + **`Root`** (paths) + the `nexus-kit new` CLI.
-No domain, HTTP or DB.
+Read `.nexus-kit/map.md` for the nexus-kit guides. (Claude Code auto-imports it below.)
 
-## Public API
+@.nexus-kit/map.md
 
-| Symbol | Import | Role |
-|---|---|---|
-| `ApplicationInterface` | `nexus_kit.interfaces` | run contract: `__init__(env, container)` + `run()` |
-| `ContainerInterface` | `nexus_kit.interfaces` | DI contract: `get(cls)`, `set(cls, value)` |
-| `EnvironmentInterface` | `nexus_kit.interfaces` | typed config base (pydantic BaseSettings + `@singleton`) |
-| `ServiceInterface` | `nexus_kit.interfaces` | long-lived service: `start()`/`stop()` (sync or async, `stop()` idempotent) |
-| `Root` | `nexus_kit` | paths: `Root.internal(*p)` (bundled assets) / `Root.external(*p)` (files next to the executable — or next to `main.py` in dev: `.env`, db) |
-| `ContainerInjector` | `nexus_kit.impl` | concrete container; constructor takes `DI_CONFIG: dict[Type, Impl]` |
-| `ServiceRunner` | `nexus_kit.impl` | ordered start / guaranteed reverse-order stop: `with`/`async with ServiceRunner(container, SERVICES)` around the app body |
-| `NamedLogger` / `StdoutHandler` / `LogFormatter` | `nexus_kit.logging` | DI-injectable logging |
-
-**Gotcha:** `@singleton`, `@inject`, `Injector` come from the `injector` package, NOT
-from nexus-kit (`from injector import inject, singleton`). Nexus never re-exports them.
-
-**Dependencies:** `injector` and `pydantic-settings` are core dependencies of nexus —
-no extras, everything works out of the box.
-
-## Bootstrap (`main.py`)
-
-```python
-env = Environment(Root.external(".env"))   # 1. config
-container = ContainerInjector(DI_CONFIG)   # 2. wiring
-container.set(Environment, env)            # 3. env is NOT auto-bound — bind it by hand
-Application(env, container).run()          # 4. start
-```
-
-- `DI_CONFIG` (composition root) is a `dict{Interface: Impl}`; register only swappable
-  seams — `@singleton @inject` services are built by the container from their constructors.
-- **Do not bind a class to itself.** Interfaces carry the `Interface` suffix; implementations don't.
-- Long-lived services are `@singleton`, dependencies come via an `@inject` constructor.
-- Logging: subclass `NamedLogger` (class attr `name`), inject by type; change the format
-  by rebinding `LogFormatter` in `DI_CONFIG`.
-
-## Lifecycle (`ServiceRunner`)
-
-Long-lived services implement `ServiceInterface` — `start()`/`stop()`, sync or async,
-`stop()` must be idempotent. `Application` lists them in `SERVICES` (startup order) and
-wraps the app body in the runner; see `app/services/ticker.py` for the pattern
-(worker thread + stop Event + bounded join):
-
-```python
-class Application(ApplicationInterface):
-    SERVICES = [Database, Poller, HttpApiService]      # startup order
-
-    def run(self) -> None:
-        with ServiceRunner(self._container, self.SERVICES):   # async app: `async with`
-            self._main_loop()
-        # leaving the block stops everything in reverse — on return, exception, Ctrl+C
-```
-
-Guarantees: crash-safe startup (a failed `start()` still gets its own best-effort
-`stop()`, then the already-started services roll back — write `stop()` to tolerate
-partially initialized state); a failing `stop()` is logged, teardown continues; async
-stops are bounded by `stop_grace` (default 10s), sync stops run inline unbounded;
-`stop()` must be idempotent. The runner never grabs
-signals — the exit is triggered by uvicorn / Qt `aboutToQuit` / your own code. Services
-do NOT go into `DI_CONFIG` (concrete `@singleton` classes resolve themselves).
-
-## Freezing (PyInstaller)
-
-`nexus-kit freeze` (once, from the app root) generates `app.spec` and fixes
-`.gitignore` (`app.spec` is source — commit it). `nexus-kit build` (every release,
-any platform) clean-builds `dist/` from the spec. Two resource classes mirror
-`Root`: BUNDLED data is listed in `app.spec`, read via `Root.internal(...)`;
-EXTERNAL files are copied next to the binary by `build` (`resources/`,
-`.env.example`), read via `Root.external(...)`. The real `.env` ships ONLY with
-`nexus-kit build --env`. For reproducible builds: `uv add --dev pyinstaller`.
-Frozen targets need Windows 10+ or any modern linux/macos (Python 3.12 floor).
-
-## Satellites (nexus-kit-* packages)
-
-The kernel stays thin; integrations live in satellite packages (`nexus-kit-fastapi`,
-...). Every satellite ships its own AI guide inside its wheel. After `uv add`,
-upgrade or removal of ANY nexus-kit package, run **`uv run nexus-kit sync-ai`** from
-the app root (via `uv run` so the project environment is the one scanned): it mirrors
-each installed, trusted `nexus-kit-*` package's guide into `.ai/<dist-name>.md` and
-refreshes this file, pinned to the kernel version installed in the app.
-
-A guide is instructions an AI assistant will follow, so a satellite is mirrored only
-after you trust it once: `uv run nexus-kit sync-ai --trust nexus-kit-fastapi` (the
-kernel is trusted implicitly; the trust list lives in `.ai/trusted-guides.txt`).
-Managed files carry the header stamp above; your own `.ai/*.md` files are never
-touched. A plain run only creates/updates and quarantines the guide of any package
-that is uninstalled or no longer trusted — moved to `.nexus-kit-quarantine/` (outside
-`.ai/`, so nothing reads it); `--prune` deletes those and empties the quarantine.
-
-## What nexus does NOT provide (you hand-roll these)
-
-Signal handling (`ServiceRunner` never grabs SIGINT/SIGTERM — exit is triggered by
-uvicorn, Qt `aboutToQuit`, or your own code); a background-service/worker base;
-a repository/DB layer; a test harness; HTTP/routing/retries.
+<!-- After `uv add`-ing, upgrading or removing any nexus-kit package, run
+     `uv run nexus-kit sync-ai` to refresh `.nexus-kit/`. This mount is a stable
+     pointer — you won't need to edit this file again. -->
 """,
 }
 
@@ -386,9 +293,9 @@ def _new(app_name: str) -> None:
     print("")
     print(f"  cd {app_name}")
     print("")
-    print("  # install dependencies:")
-    print("  uv sync                  # uv")
-    print("  pip install -e .         # pip")
+    print("  # install dependencies and generate the AI guide atlas:")
+    print("  uv sync")
+    print("  uv run nexus-kit sync-ai     # writes .nexus-kit/; AGENTS.md already mounts it")
     print("")
     print("  python main.py")
 
@@ -497,62 +404,39 @@ def _build(copy_env: bool) -> None:
     print(f"  Done: dist/ -> {', '.join(built)}")
 
 
-# --- sync-ai: mirror the AI guides of installed nexus-kit packages into .ai/ ---
+# --- sync-ai: build the .nexus-kit atlas from installed nexus-kit guides ---
 #
-# pip/uv have no post-install hooks, so a freshly installed satellite cannot
-# announce itself to the app's AI docs. `nexus-kit sync-ai` is the explicit
-# ritual instead: every satellite ships `<package>/.ai/guide.md` inside its
-# wheel, and this command mirrors those into the app's `.ai/` — plus refreshes
-# the kernel cheat sheet to the installed kernel version. Managed files are
-# recognized by the stamp; anything unstamped is user-owned and untouchable.
+# Every nexus-kit package (kernel and satellites) ships an `.ai/guide.md` inside
+# its wheel and declares the `nexus_kit.ai_guides` entry point. `sync-ai` reads
+# those from the APPLICATION's environment and writes a small, always-on MAP plus
+# one on-demand guide per package into `.nexus-kit/`. The user mounts ONLY the map
+# in their own AGENTS.md/CLAUDE.md (one stable line); this tool never edits those.
 #
-# What this is careful about:
-#   1. It scans the APPLICATION's environment (the .venv beside main.py), not
-#      the interpreter running the CLI — so `nexus-kit` installed as a global
-#      uv tool still sees the satellites in the project venv, and the kernel
-#      version pin is the app's, not the CLI's.
-#   2. A guide is INSTRUCTIONS an AI assistant will follow. The `nexus-kit-*`
-#      name filter only stops accidental/transitive guides; it is NOT a trust
-#      boundary (anyone can publish `nexus-kit-evil`). So a satellite's guide is
-#      mirrored only once its package is on the app's trust list — the kernel is
-#      trusted implicitly, everything else is opt-in via `--trust`.
-#   3. It never deletes without an explicit `--prune`; a plain run only
-#      creates/updates.
+# Why this shape:
+#   - Progressive disclosure (the Skills model): the map is tiny and always in
+#     context; full guides are read on demand, so N satellites don't bloat it.
+#   - Discovery via entry points, not a name guess — a package opts in explicitly.
+#   - The atlas is committed, so a new/changed guide shows up in `git diff`.
+#     Reviewing that diff IS the trust boundary against a malicious guide: nothing
+#     reaches the agent that did not land in your git first. No allow-list, no
+#     quarantine.
 
-_SYNC_STAMP = re.compile(r"^<!-- nexus-kit sync-ai: (?P<dist>\S+) (?P<version>\S+) ")
+_ATLAS_DIR = Path(".nexus-kit")
+_GUIDES_DIR = _ATLAS_DIR / "guides"
+_MAP_FILE = _ATLAS_DIR / "map.md"
+_AI_GUIDES_GROUP = "nexus_kit.ai_guides"
+_DO_NOT_EDIT = "do not edit; re-run `nexus-kit sync-ai` to refresh"
 
-# The pre-0.4.10 scaffold wrote this file with no stamp; it is unmistakably ours,
-# so sync-ai adopts and refreshes it instead of treating it as user-owned.
-_LEGACY_KERNEL_SHEET_HEADER = "# nexus-kit — quick reference"
 
-# Retired guides live HERE, deliberately outside .ai/: CLAUDE.md tells agents to
-# read the guides under .ai/, so a quarantine kept inside .ai/ (even as
-# *.md.untrusted) is still reachable by a recursive reader. This directory is not
-# a guide store the assistant is pointed at.
-_QUARANTINE_DIR = Path(".nexus-kit-quarantine")
-
-_TRUST_FILE = Path(".ai") / "trusted-guides.txt"
-_TRUST_HEADER = (
-    "# Packages whose AI guides `nexus-kit sync-ai` may mirror into .ai/.\n"
-    "# A guide is instructions your AI assistant will follow — trust deliberately.\n"
-    "# One distribution name per line; add with `nexus-kit sync-ai --trust <name>`.\n"
-)
+class _Guide(NamedTuple):
+    name: str
+    version: str
+    summary: str
+    text: str
 
 
 def _normalize(dist_name: str) -> str:
     return re.sub(r"[-_.]+", "-", dist_name).lower()
-
-
-def _stamp(dist: str, dist_version: str) -> str:
-    return (
-        f"<!-- nexus-kit sync-ai: {dist} {dist_version} — generated; "
-        "refresh with `nexus-kit sync-ai`, do not edit by hand -->\n"
-    )
-
-
-def _is_nexus_kit_namespace(dist_name: str) -> bool:
-    normalized = _normalize(dist_name)
-    return normalized == "nexus-kit" or normalized.startswith("nexus-kit-")
 
 
 def _app_site_packages() -> Path | None:
@@ -575,96 +459,141 @@ def _distributions(search_path: list[str] | None):
     return distributions(path=search_path) if search_path else distributions()
 
 
-def _app_dist_version(search_path: list[str] | None, dist_name: str) -> str | None:
-    """The version of `dist_name` as installed in the scanned environment
-    (the app venv), independent of the interpreter running the CLI."""
-    target = _normalize(dist_name)
+def _discover_guides(search_path: list[str] | None) -> list[_Guide]:
+    """Every installed distribution that declares the `nexus_kit.ai_guides` entry
+    point AND ships an `.ai/guide.md`, read from the scanned environment (the app
+    venv). The entry point is the discovery gate; the guide file is located via the
+    distribution's file list, so we never import the (possibly untrusted) package."""
+    guides: list[_Guide] = []
     for dist in _distributions(search_path):
-        if _normalize(dist.metadata["Name"]) == target:
-            return dist.version
-    return None
-
-
-def _installed_ai_guides(search_path: list[str] | None) -> dict[str, tuple[str, str]]:
-    """dist name -> (version, guide text) for every installed `nexus-kit-*`
-    distribution shipping an embedded AI guide (`<package>/.ai/guide.md`).
-
-    `search_path` selects the environment to scan (the app venv's
-    site-packages); None falls back to the running interpreter's sys.path."""
-    guides: dict[str, tuple[str, str]] = {}
-    for dist in _distributions(search_path):
-        name = dist.metadata["Name"]
-        if not _is_nexus_kit_namespace(name):
-            continue  # not ours — never a write channel into AI-read files
+        if not list(dist.entry_points.select(group=_AI_GUIDES_GROUP)):
+            continue  # not a nexus-kit guide provider
+        text = None
         for file in dist.files or []:
             if file.parts[-2:] == (".ai", "guide.md"):
                 located = Path(str(file.locate()))
                 if located.is_file():
-                    guides[name] = (dist.version, located.read_text(encoding="utf-8"))
+                    text = located.read_text(encoding="utf-8")
                 break
-    return guides
+        if text is None:
+            continue  # declared the entry point but shipped no guide
+        name = dist.metadata["Name"]
+        summary = (dist.metadata.get("Summary") or "").strip()
+        guides.append(_Guide(name, dist.version, summary, text))
+    # kernel first, then alphabetical
+    return sorted(guides, key=lambda g: (_normalize(g.name) != "nexus-kit", _normalize(g.name)))
 
 
-def _load_trusted() -> set[str]:
-    if not _TRUST_FILE.exists():
-        return set()
-    return {
-        _normalize(line)
-        for raw in _TRUST_FILE.read_text(encoding="utf-8").splitlines()
-        if (line := raw.strip()) and not line.startswith("#")
-    }
+def _guide_file_content(g: _Guide) -> str:
+    text = g.text if g.text.endswith("\n") else g.text + "\n"
+    return f"<!-- generated by `nexus-kit sync-ai` from {g.name} {g.version} — {_DO_NOT_EDIT} -->\n{text}"
 
 
-def _add_trusted(names: list[str]) -> None:
-    _TRUST_FILE.parent.mkdir(exist_ok=True)
-    have = _load_trusted()
-    fresh = [n for n in names if _normalize(n) not in have]
-    if not fresh:
-        return
-    body = _TRUST_FILE.read_text(encoding="utf-8") if _TRUST_FILE.exists() else _TRUST_HEADER
-    if not body.endswith("\n"):
-        body += "\n"
-    body += "".join(f"{n}\n" for n in fresh)
-    _TRUST_FILE.write_text(body, encoding="utf-8")
-    for n in fresh:
-        print(f"  trusted {n}")
+def _map_content(guides: list[_Guide]) -> str:
+    lines = [
+        f"<!-- generated by `nexus-kit sync-ai` — {_DO_NOT_EDIT} -->",
+        "# nexus-kit — AI guide map",
+        "",
+        "This project is built on nexus-kit. The full guide for each installed",
+        "nexus-kit package is in `.nexus-kit/guides/`. Read the specific guide",
+        "listed below WHEN its situation applies — don't load them all at once.",
+        "",
+        "## Installed guides",
+        "",
+    ]
+    if not guides:
+        lines.append("_No nexus-kit guides are installed in this environment._")
+    for g in guides:
+        summary = g.summary or "nexus-kit package"
+        summary = summary if summary.endswith(".") else summary + "."
+        lines.append(f"- **{g.name}** `{g.version}` — {summary} Read `.nexus-kit/guides/{g.name}.md`.")
+    lines.append("")
+    return "\n".join(lines)
 
 
-def _stamp_kind(path: Path, name: str) -> str:
-    """'stamped' if the file carries our stamp, 'legacy' if it is the known
-    pre-0.4.10 generated kernel cheat sheet, '' if user-owned (do not touch)."""
-    head = path.read_text(encoding="utf-8").split("\n", 1)[0]
-    if _SYNC_STAMP.match(head):
-        return "stamped"
-    if name == "nexus-kit" and head.startswith(_LEGACY_KERNEL_SHEET_HEADER):
-        return "legacy"
-    return ""
+def _atlas_files(guides: list[_Guide]) -> dict[Path, str]:
+    """The full desired content of the atlas: {relative path -> content}."""
+    files: dict[Path, str] = {_GUIDES_DIR / f"{g.name}.md": _guide_file_content(g) for g in guides}
+    files[_MAP_FILE] = _map_content(guides)
+    return files
 
 
-def _write_guide(ai_dir: Path, name: str, dist_version: str, content: str) -> None:
-    path = ai_dir / f"{name}.md"
-    if path.exists():
-        kind = _stamp_kind(path, name)
-        if not kind:
-            print(f"  skip {path} (no sync-ai stamp — user-owned)")
-            return
-        if path.read_text(encoding="utf-8") == content:
-            return
-        if kind == "legacy":
-            # An unstamped legacy file may carry the user's own edits; never
-            # discard them silently — keep a one-time .orig before migrating.
-            backup = path.with_name(path.name + ".orig")
-            if not backup.exists():
-                backup.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
-                print(f"  kept your previous {path.name} as {backup.name} before migrating")
+def _mount_status() -> str | None:
+    """Which of the user's agent files (if any) already mounts the map."""
+    for name in ("AGENTS.md", "CLAUDE.md"):
+        path = Path(name)
+        if path.is_file() and ".nexus-kit/map.md" in path.read_text(encoding="utf-8", errors="ignore"):
+            return name
+    return None
+
+
+def _migrate_legacy_layout() -> None:
+    """Remove the 0.4.x layout (copied guides + trust file + quarantine) that the
+    entry-point atlas replaces. Only our own generated artifacts are touched."""
+    removed: list[str] = []
+    ai = Path(".ai")
+    if ai.is_dir():
+        for md in sorted(ai.glob("*.md")):
+            head = md.read_text(encoding="utf-8", errors="ignore").split("\n", 1)[0]
+            if head.startswith("<!-- nexus-kit sync-ai:"):
+                md.unlink()
+                removed.append(str(md))
+        for extra in sorted(ai.glob("*.md.untrusted")) + sorted(ai.glob("*.md.orig")):
+            extra.unlink()
+            removed.append(str(extra))
+        trust = ai / "trusted-guides.txt"
+        if trust.exists():
+            trust.unlink()
+            removed.append(str(trust))
+    quarantine = Path(".nexus-kit-quarantine")
+    if quarantine.is_dir():
+        import shutil
+
+        shutil.rmtree(quarantine)
+        removed.append(f"{quarantine}/")
+    if removed:
+        print("  migrated from the 0.4.x layout — removed:")
+        for item in removed:
+            print(f"    {item}")
+        print("  if your AGENTS.md/CLAUDE.md still points at .ai/, change the mount to .nexus-kit/map.md")
+
+
+def _write_atlas(desired: dict[Path, str]) -> None:
+    _GUIDES_DIR.mkdir(parents=True, exist_ok=True)
+    keep = {p.resolve() for p in desired}
+    for existing in sorted(_GUIDES_DIR.glob("*.md")):
+        if existing.resolve() not in keep:
+            existing.unlink()  # package no longer installed — regenerate wholesale
+            print(f"  removed {existing} (package no longer installed)")
+    for path, content in sorted(desired.items(), key=lambda kv: str(kv[0])):
+        if path.exists() and path.read_text(encoding="utf-8") == content:
+            continue
+        verb = "updated" if path.exists() else "created"
         path.write_text(content, encoding="utf-8")
-        print(f"  updated {path} ({name} {dist_version})")
-    else:
-        path.write_text(content, encoding="utf-8")
-        print(f"  created {path} ({name} {dist_version})")
+        print(f"  {verb} {path}")
 
 
-def _sync_ai(prune: bool, trust: list[str]) -> None:
+def _check_atlas(desired: dict[Path, str]) -> None:
+    problems: list[str] = []
+    for path, content in desired.items():
+        if not path.exists():
+            problems.append(f"missing {path}")
+        elif path.read_text(encoding="utf-8") != content:
+            problems.append(f"stale {path}")
+    if _GUIDES_DIR.is_dir():
+        keep = {p.resolve() for p in desired}
+        for existing in _GUIDES_DIR.glob("*.md"):
+            if existing.resolve() not in keep:
+                problems.append(f"orphan {existing}")
+    if problems:
+        print("  .nexus-kit is out of date — run `nexus-kit sync-ai`:")
+        for item in sorted(problems):
+            print(f"    {item}")
+        sys.exit(1)
+    print("  .nexus-kit is up to date.")
+
+
+def _sync_ai(check: bool) -> None:
     if not Path("main.py").exists():
         print("Error: main.py not found — run `nexus-kit sync-ai` from the application root")
         sys.exit(1)
@@ -678,104 +607,28 @@ def _sync_ai(prune: bool, trust: list[str]) -> None:
         print("  (run `uv run nexus-kit sync-ai` so the project environment is scanned)")
         search_path = None
 
-    ai_dir = Path(".ai")
-    ai_dir.mkdir(exist_ok=True)
-    if trust:
-        _add_trusted(trust)
-    trusted = _load_trusted()
+    guides = _discover_guides(search_path)
+    desired = _atlas_files(guides)
 
-    discovered = _installed_ai_guides(search_path)
-    guides: dict[str, tuple[str, str]] = {}
-    untrusted: list[tuple[str, str]] = []
-    for name, (dist_version, text) in discovered.items():
-        if _normalize(name) == "nexus-kit":
-            continue  # the kernel is handled below from the template, always
-        if _normalize(name) in trusted:
-            guides[name] = (dist_version, _stamp(name, dist_version) + text)
-        else:
-            untrusted.append((name, dist_version))
+    if check:
+        _check_atlas(desired)
+        return
 
-    # The kernel's contribution is the app-facing cheat sheet (from the template),
-    # pinned to the version installed in the APP env — not the CLI's own version,
-    # which is why a global `nexus-kit` no longer writes a wrong ~= pin.
-    cli_version = version("nexus-kit")
-    app_version = _app_dist_version(search_path, "nexus-kit") or cli_version
-    kernel_body = _TEMPLATES[".ai/nexus-kit.md"].replace("{{NEXUS_REF}}", app_version)
-    if app_version != cli_version:
-        # The pin is the app's, but the body can only be THIS CLI's template —
-        # it may describe features the app's kernel lacks. Say so IN the file, so
-        # an agent reading it later (not just whoever watched stdout) is warned.
-        print(f"  kernel pin uses the app's nexus-kit {app_version} (this CLI is {cli_version});")
-        print("  the cheat-sheet body is this CLI's — run via `uv run` for a body that matches too")
-        warning = (
-            f"<!-- WARNING: this body was generated by nexus-kit {cli_version}, but the app runs "
-            f"nexus-kit {app_version}; features described here may not exist in your kernel. "
-            "Run `uv run nexus-kit sync-ai` for a version-matched body. -->\n"
-        )
-        head, _, rest = kernel_body.partition("\n")  # keep the stamp first, warning second
-        kernel_body = f"{head}\n{warning}{rest}"
-    guides["nexus-kit"] = (app_version, kernel_body)
-
-    for name, (dist_version, content) in sorted(guides.items()):
-        _write_guide(ai_dir, name, dist_version, content)
-
-    # A guide we are no longer mirroring must not stay in .ai/ where the assistant
-    # keeps reading it — this includes a satellite that is installed but no longer
-    # trusted (e.g. auto-mirrored by 0.4.10/0.4.11 before the trust gate existed).
-    # Retire such stamped files out of .ai/ by default (never silently delete);
-    # --prune deletes them for real.
-    handled = {_normalize(name) for name in guides}
-    for path in sorted(ai_dir.glob("*.md")):
-        if _normalize(path.stem) in handled:
-            continue
-        if _stamp_kind(path, path.stem) != "stamped":
-            continue  # user-owned / unrelated .md — never touch
-        installed = any(_normalize(n) == _normalize(path.stem) for n in discovered)
-        reason = "installed but not trusted" if installed else "package not installed"
-        _retire(path, prune, reason)
-
-    # 0.4.13 quarantined INSIDE .ai/ as `<name>.md.untrusted`; migrate those out.
-    for legacy in sorted(ai_dir.glob("*.md.untrusted")):
-        if prune:
-            legacy.unlink()
-        else:
-            _QUARANTINE_DIR.mkdir(exist_ok=True)
-            legacy.replace(_QUARANTINE_DIR / legacy.name[: -len(".untrusted")])
-            print(f"  moved {legacy} into {_QUARANTINE_DIR}/ (quarantine now lives outside .ai/)")
-
-    # --prune also empties the quarantine store — the earlier fix left retired
-    # files with nothing that could ever delete them (they are no longer *.md).
-    if prune and _QUARANTINE_DIR.is_dir():
-        import shutil
-
-        shutil.rmtree(_QUARANTINE_DIR)
-        print(f"  pruned the quarantine store {_QUARANTINE_DIR}/")
-
-    if untrusted:
-        print("")
-        print("  These installed packages ship an AI guide but are not trusted yet")
-        print("  (a guide is instructions your assistant will follow — review it first):")
-        for name, dist_version in sorted(untrusted):
-            print(f"    {name} {dist_version}")
-        joined = " ".join(sorted(name for name, _ in untrusted))
-        print(f"  trust with: nexus-kit sync-ai --trust {joined}")
+    _migrate_legacy_layout()
+    _write_atlas(desired)
 
     print("")
-    print("  .ai/ is in sync with the trusted nexus-kit packages.")
-
-
-def _retire(path: Path, prune: bool, reason: str) -> None:
-    """Get a no-longer-mirrored guide out of the assistant's read path.
-    Default: move it into the quarantine dir (outside .ai/, kept for inspection).
-    With --prune: delete outright."""
-    if prune:
-        path.unlink()
-        print(f"  pruned {path} ({reason})")
+    if guides:
+        print(f"  {len(guides)} guide(s) in {_ATLAS_DIR}/: " + ", ".join(g.name for g in guides))
     else:
-        _QUARANTINE_DIR.mkdir(exist_ok=True)
-        target = _QUARANTINE_DIR / path.name
-        path.replace(target)  # atomic move; outside .ai/ entirely, so no agent reads it
-        print(f"  quarantined {path} -> {target} ({reason}; --prune to delete)")
+        print(f"  no nexus-kit guides found in the app environment — {_ATLAS_DIR}/map.md is empty")
+    mounted = _mount_status()
+    if mounted:
+        print(f"  mounted via {mounted} -> {_MAP_FILE}")
+    else:
+        print("  To let your assistant use these, add one line to your AGENTS.md (or CLAUDE.md):")
+        print("      read .nexus-kit/map.md        # Claude Code: @.nexus-kit/map.md")
+        print("  We never edit AGENTS.md/CLAUDE.md — that's yours. `nexus-kit new` sets it up for fresh apps.")
 
 
 def main() -> None:
@@ -793,11 +646,9 @@ def main() -> None:
     p_build = sub.add_parser("build", help="clean-build dist/ from app.spec")
     p_build.add_argument("--env", action="store_true", help="ship your real .env into dist/ (may contain secrets)")
 
-    p_sync = sub.add_parser("sync-ai", help="mirror trusted nexus-kit packages' AI guides into .ai/")
-    p_sync.add_argument("--trust", nargs="+", metavar="PKG", default=[],
-                        help="trust these packages' guides (records consent in .ai/trusted-guides.txt)")
-    p_sync.add_argument("--prune", action="store_true",
-                        help="delete guides of uninstalled/untrusted packages instead of quarantining them")
+    p_sync = sub.add_parser("sync-ai", help="build the .nexus-kit AI guide atlas from installed nexus-kit packages")
+    p_sync.add_argument("--check", action="store_true",
+                        help="fail if .nexus-kit is out of date (for CI); write nothing")
 
     args = parser.parse_args()
     if args.command == "new":
@@ -807,4 +658,4 @@ def main() -> None:
     elif args.command == "build":
         _build(copy_env=args.env)
     elif args.command == "sync-ai":
-        _sync_ai(prune=args.prune, trust=args.trust)
+        _sync_ai(check=args.check)

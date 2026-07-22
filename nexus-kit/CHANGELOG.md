@@ -3,6 +3,35 @@
 All notable changes to nexus-kit. Versioning: [semver](https://semver.org/) —
 in 0.x, breaking changes bump the minor version.
 
+## [0.5.0] — 2026-07-22
+
+**Breaking: the AI-guide delivery is redesigned.** The 0.4.x model — copy each
+package's guide into `.ai/`, gate with a trust file, quarantine orphans — was
+over-built (four hardening rounds of consequences from *copying*). It is
+replaced by a committed atlas discovered through entry points.
+
+- **`sync-ai` now builds `.nexus-kit/`**: a small, always-on `map.md` plus one
+  on-demand `guides/<pkg>.md` per package. You mount ONLY the map in your own
+  AGENTS.md/CLAUDE.md (one stable line); the guides are read on demand. This is
+  progressive disclosure (the Skills model) — N satellites no longer bloat the
+  agent's context.
+- **Discovery via the `nexus_kit.ai_guides` entry point**, not a name guess. A
+  package opts in explicitly. The kernel is just another provider: it ships its
+  own `guide.md` in the wheel, so the CLI no longer injects a version-pinned
+  template — the whole global-CLI-vs-app version-mismatch class of bug is gone.
+- **The trust boundary is `git diff`.** The atlas is committed, so a new or
+  changed guide shows up in review before it can reach the agent. No trust file,
+  no quarantine, no `--prune`.
+- **Never writes CLAUDE.md/AGENTS.md.** `nexus-kit new` bootstraps an AGENTS.md
+  that mounts the map; otherwise `sync-ai` only prints the one-line mount hint.
+- **`sync-ai --check`** for CI: fails if `.nexus-kit/` is out of date, writes
+  nothing.
+- **One-shot migration**: `sync-ai` removes the 0.4.x layout it finds (generated
+  `.ai/*.md`, `trusted-guides.txt`, `.nexus-kit-quarantine/`); your own
+  unstamped `.ai/` files are left alone. Update your mount from `.ai/` to
+  `.nexus-kit/map.md`.
+- Removed the `--trust` and `--prune` flags (no longer meaningful).
+
 ## [0.4.14] — 2026-07-21
 
 Quarantine lifecycle finished (0.4.13's quarantine was half-built; both edges

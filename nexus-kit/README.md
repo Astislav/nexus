@@ -435,39 +435,29 @@ Domain logic, UI, data access — those belong in your app.
 
 ## For AI assistants
 
-Two machine-oriented references ship with the framework:
-
-- [`.ai/guide.md`](https://github.com/Astislav/nexus/blob/master/nexus-kit/.ai/guide.md) —
-  the full framework guide: API, conventions, lifecycle guarantees, what
-  NOT to do. Point your agent at it when working in this repo or on apps
-  built with nexus-kit.
-- `nexus-kit new` generates the same knowledge into every scaffolded app:
-  a `CLAUDE.md` pointing at the guides under `.ai/`, starting with
-  `.ai/nexus-kit.md` — a self-contained cheat sheet pinned to the installed
-  framework version, so an AI assistant in a consumer project never needs
-  to read the framework source.
-
-The guides stay in sync with what is actually installed: every satellite
-package ships its own AI guide inside its wheel, and
+The full framework guide ships inside the wheel:
+[`.ai/guide.md`](https://github.com/Astislav/nexus/blob/master/nexus-kit/.ai/guide.md)
+— API, conventions, lifecycle guarantees, what NOT to do. In a consumer app you
+don't read it from the repo; `sync-ai` writes it into a local **atlas**:
 
 ```bash
 uv run nexus-kit sync-ai   # after adding, upgrading or removing any nexus-kit package
 ```
 
-mirrors each installed, trusted `nexus-kit-*` package's guide into the app's
-`.ai/<dist-name>.md` (and refreshes the kernel cheat sheet, pinned to the
-kernel version installed in the app). Run it via `uv run` so the project
-environment is the one scanned.
+This discovers every installed nexus-kit package (each declares the
+`nexus_kit.ai_guides` entry point) in the app's `.venv` and writes `.nexus-kit/`:
 
-A guide is instructions your AI assistant will follow, so a satellite is
-mirrored only after you trust its package once — `uv run nexus-kit sync-ai
---trust nexus-kit-fastapi` (the kernel is trusted implicitly; the list lives
-in `.ai/trusted-guides.txt`). The `nexus-kit-*` name is only a filter, not a
-trust boundary. Managed files carry a header stamp; your own `.ai/*.md` files
-are never touched. A plain run never deletes: the guide of a package that is
-uninstalled or no longer trusted is quarantined to `.nexus-kit-quarantine/`
-(outside `.ai/` entirely, so nothing reads it), and `--prune` deletes those and
-empties the quarantine.
+- `.nexus-kit/map.md` — a small, always-on index: one line per package plus a
+  pointer to its full guide.
+- `.nexus-kit/guides/<pkg>.md` — the full guide per package, read **on demand**.
+
+Mount only the map in your own AGENTS.md (one line: `@.nexus-kit/map.md`); the
+agent opens a specific guide when it's relevant, so more satellites don't bloat
+the context — progressive disclosure, the same shape as Skills. `nexus-kit new`
+sets the mount up for fresh apps; the tooling **never** writes your
+AGENTS.md/CLAUDE.md. The atlas is committed, so a new or changed guide appears in
+`git diff` — reviewing that is the trust boundary (no allow-list, no magic).
+`uv run nexus-kit sync-ai --check` fails in CI if `.nexus-kit/` is stale.
 
 ## License
 

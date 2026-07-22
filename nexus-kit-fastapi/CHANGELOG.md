@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0] — 2026-07-22
+
+- Declares the `nexus_kit.ai_guides` entry point so `nexus-kit sync-ai` (0.5+)
+  discovers this package's guide and writes it into the app's `.nexus-kit/`
+  atlas. Requires **nexus-kit >= 0.5, < 0.6**. No change to `HttpService` /
+  `Injected` runtime behaviour.
+
 ## [0.2.5] — 2026-07-21
 
 - Dependency bound corrected to **nexus-kit >= 0.4.12, < 0.5**. 0.2.4 pinned an

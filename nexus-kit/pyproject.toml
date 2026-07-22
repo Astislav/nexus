@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nexus-kit"
-version = "0.4.14"
+version = "0.5.0"
 description = "Application kernel for long-lived Python apps: one entry point, typed config, constructor DI, service lifecycle, PyInstaller-safe paths."
 readme = "README.md"
 license = { text = "MIT" }
@@ -40,5 +40,16 @@ Changelog = "https://github.com/Astislav/nexus/blob/master/nexus-kit/CHANGELOG.m
 [project.scripts]
 nexus-kit = "nexus_kit.cli:main"
 
+[project.entry-points."nexus_kit.ai_guides"]
+# Declaring this group is how `nexus-kit sync-ai` discovers a package's AI guide
+# (the kernel is just another provider). The value names the import package that
+# contains `.ai/guide.md`; sync-ai locates the file without importing the module.
+guide = "nexus_kit"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/nexus_kit"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# The AI guide ships inside the wheel so `nexus-kit sync-ai` can read it from the
+# installed package (version-matched), not from the CLI's own template.
+".ai/guide.md" = "nexus_kit/.ai/guide.md"

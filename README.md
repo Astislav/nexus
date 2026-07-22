@@ -140,18 +140,19 @@ your functions grow threads, sockets and a shutdown order.
 
 ## Your AI assistant already knows this framework
 
-Every scaffolded app ships a `CLAUDE.md` and a version-pinned cheat sheet
-(`.ai/nexus-kit.md`); every package in this repo carries a
-machine-oriented [`.ai/guide.md`](nexus-kit/.ai/guide.md) — API contract,
-conventions, anti-patterns — updated **in the same commit** as the API it
-describes. Satellites ship their guide **inside the wheel**: after
-`uv add nexus-kit-fastapi`, one `uv run nexus-kit sync-ai --trust
-nexus-kit-fastapi` mirrors it into your app's `.ai/`, version-matched to
-what you installed — trusting a guide (it is instructions your agent
-follows) is a deliberate one-time opt-in. Point your agent at
-it and it builds on nexus-kit idiomatically without reading the source.
-Frameworks used to be documented for humans; this one is documented for
-the pair of you.
+Every package in this repo carries a machine-oriented
+[`.ai/guide.md`](nexus-kit/.ai/guide.md) — API contract, conventions,
+anti-patterns — updated **in the same commit** as the API it describes, and
+shipped **inside the wheel**. In a consumer app, `uv run nexus-kit sync-ai`
+discovers every installed nexus-kit package (via a declared entry point) and
+writes an **atlas** into `.nexus-kit/`: a small always-on `map.md` plus one
+on-demand guide per package. You mount just the map in your own AGENTS.md —
+the agent reads the specific guide when it's relevant, so ten satellites don't
+bloat the context. It's a local, version-matched "Context7" for your installed
+subset, and because the atlas is committed, a new or changed guide shows up in
+`git diff` — that review is the trust boundary, no magic. The tooling never
+edits your AGENTS.md/CLAUDE.md. Frameworks used to be documented for humans;
+this one is documented for the pair of you.
 
 ## Principles
 
@@ -198,9 +199,10 @@ Releases are tag-driven: `v1.2.3` publishes `nexus-kit`;
 **New package checklist** — a directory beside the others, named after its
 PyPI dist (dir = dist name = tag prefix), containing: `pyproject.toml`,
 `src/<import_name>/`, `tests/`, `README.md` (with a *For AI assistants*
-section), `CHANGELOG.md`, `LICENSE`, and **`.ai/guide.md`** —
-force-included into the wheel as `<import_name>/.ai/guide.md` so
-`nexus-kit sync-ai` can mirror it into consumer apps. Plus one pending
+section), `CHANGELOG.md`, `LICENSE`, and **`.ai/guide.md`** — force-included
+into the wheel as `<import_name>/.ai/guide.md` and declared via a
+`[project.entry-points."nexus_kit.ai_guides"]` entry so `nexus-kit sync-ai`
+discovers it for the consumer app's `.nexus-kit/` atlas. Plus one pending
 publisher on PyPI and a row in the table above.
 
 **AI-guide discipline**: `.ai/guide.md` changes in the same commit as the
