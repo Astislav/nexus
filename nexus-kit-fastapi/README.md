@@ -104,11 +104,11 @@ The package ships a compact machine-oriented reference —
 the HttpService contract, the `Injected` bridge, and the anti-patterns to
 avoid. Point your agent at it before it touches the HTTP layer.
 
-The guide ships inside the wheel, and this package is on the kernel's guide
-allowlist: after installing it, `uv run nexus-kit guides` (nexus-kit 0.5+) reads
-it and writes it into your app's `.nexus-kit/guides/nexus-kit-fastapi.md`, indexed
-by `.nexus-kit/map.md` (which your AGENTS.md mounts). Your assistant reads it on
-demand when working on the HTTP layer.
+In a consumer app (nexus-kit 0.5+) this guide is on the kernel's allowlist, so it
+lands in `.nexus-kit/guides/nexus-kit-fastapi.md` (indexed by `.nexus-kit/map.md`,
+which your AGENTS.md mounts) and your assistant reads it on demand when working on
+the HTTP layer. See the kernel's README for how you refresh the atlas — it's a
+command you run, never something your agent is told to run.
 
 ## License
 

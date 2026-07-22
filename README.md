@@ -143,19 +143,24 @@ your functions grow threads, sockets and a shutdown order.
 Every package in this repo carries a machine-oriented
 [`.ai/guide.md`](nexus-kit/.ai/guide.md) — API contract, conventions,
 anti-patterns — updated **in the same commit** as the API it describes, and
-shipped **inside the wheel**. In a consumer app, `uv run nexus-kit guides`
-collects the guides of the installed nexus-kit packages and writes an **atlas**
-into `.nexus-kit/`: a small always-on `map.md` — indexed with a *read-this-when*
+shipped **inside the wheel**. In a consumer app these become a local **atlas**
+under `.nexus-kit/`: a small always-on `map.md` — indexed with a *read-this-when*
 cue per package — plus one on-demand guide each. You mount just the map in your
 own AGENTS.md; the agent opens a specific guide when it's relevant, so ten
-satellites don't bloat the context. It's plain markdown and the standard
-AGENTS.md convention — no editor lock-in — and the tooling never edits your
-AGENTS.md. The gate against a malicious guide is a hard one: nexus-kit reads a
-guide **only** from packages on an allowlist baked into the kernel, so a rogue
-`nexus-kit-evil` cannot ride the atlas into your agent, and building it never
-imports a package. (Not magic dust: installing any package already runs its code
-— vet dependencies as ever.) Frameworks used to be documented for humans; this
-one is documented for the pair of you.
+satellites don't bloat the context. Plain markdown, the standard AGENTS.md
+convention — no editor lock-in — and the tooling never touches your AGENTS.md or
+any CLAUDE.md.
+
+**You** keep it current: after `uv add`/upgrade/remove of a nexus-kit package you
+run `nexus-kit update-ai-guides` — deliberately, yourself. Nothing runs it for
+you, and no guide, map or agent-read file ever tells your assistant to run it, so
+the instructions your agent reads change only when *you* decide. `.nexus-kit/` is
+committed, so you review the diff and see exactly what would reach your agent —
+new guidance, or anything that looks off — before it goes live. No illusion sold:
+a guide's text lands in your agent verbatim; the atlas is a delivery channel, not
+a filter. It gives you control of *when* and a diff to *review*, not immunity.
+Frameworks used to be documented for humans; this one is documented for the pair
+of you.
 
 ## Principles
 
@@ -206,7 +211,7 @@ section), `CHANGELOG.md`, `LICENSE`, and **`.ai/guide.md`** — force-included
 into the wheel as `<import_name>/.ai/guide.md`. To admit it into the consumer
 app's `.nexus-kit/` atlas, add its dist name to `_ALLOWED_GUIDE_PACKAGES` in
 `nexus_kit/cli.py` and release the kernel — that allowlist entry is the vouch
-that lets `nexus-kit guides` read the package's guide. Plus one pending
+that lets `nexus-kit update-ai-guides` read the package's guide. Plus one pending
 publisher on PyPI and a row in the table above.
 
 **AI-guide discipline**: `.ai/guide.md` changes in the same commit as the

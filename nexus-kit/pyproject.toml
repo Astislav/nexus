@@ -44,7 +44,7 @@ nexus-kit = "nexus_kit.cli:main"
 packages = ["src/nexus_kit"]
 
 [tool.hatch.build.targets.wheel.force-include]
-# The AI guide ships inside the wheel so `nexus-kit guides` can read it from the
+# The AI guide ships inside the wheel so `nexus-kit update-ai-guides` can read it from the
 # installed package (version-matched). Discovery is gated by the author's
 # allowlist in nexus_kit.cli (_ALLOWED_GUIDE_PACKAGES), not by an entry point.
 ".ai/guide.md" = "nexus_kit/.ai/guide.md"

@@ -10,38 +10,39 @@ package's guide into `.ai/`, gate with a trust file, quarantine orphans — was
 over-built (four hardening rounds of consequences from *copying*). It is
 replaced by a committed atlas gated by an author-controlled allowlist in core.
 
-- **`nexus-kit guides` now builds `.nexus-kit/`** (the command is `guides`;
-  `sync-ai` is kept as an alias): a small, always-on `map.md` — indexed with a
-  *read-this-when* cue per package (from an optional `<!-- when: … -->` in each
-  guide) — plus one on-demand `guides/<pkg>.md`. You mount ONLY the map in your
-  own AGENTS.md/CLAUDE.md (one stable line); the guides are read on demand. This
-  is progressive disclosure (the Skills model) — N satellites no longer bloat the
-  agent's context. The mount is plain markdown (`Read .nexus-kit/map.md`), so it
-  is not tied to any one editor; Claude Code can `@`-import it.
+- **`nexus-kit update-ai-guides` builds `.nexus-kit/`** (short alias `guides`): a
+  small, always-on `map.md` — indexed with a *read-this-when* cue per package
+  (from an optional `<!-- when: … -->` in each guide) — plus one on-demand
+  `guides/<pkg>.md`. You mount ONLY the map in your own AGENTS.md (one stable
+  line); the guides are read on demand. Progressive disclosure (the Skills model)
+  — N satellites no longer bloat the agent's context. Plain markdown, the standard
+  AGENTS.md convention, no editor lock-in.
 - **The kernel is just another guide provider**: it ships its own `guide.md` in
   the wheel, so the CLI no longer injects a version-pinned template — the whole
   global-CLI-vs-app version-mismatch class of bug is gone.
-- **Discovery is gated by an allowlist in core (`_ALLOWED_GUIDE_PACKAGES`), and
-  this IS a real gate** — not the 0.4.x per-app trust file (that plus git-review
-  was security theatre; an installed package already runs code). `guides` reads a
-  guide **only** from a package the author blessed in the kernel, so a rogue
-  `nexus-kit-evil` (or any unrelated dependency) cannot get its text into your
-  agent through the atlas; PyPI name uniqueness means no one can publish under a
-  blessed name. Building the atlas never imports a package (the guide is read as a
-  file), and a RECORD path escaping the package tree is refused. It does *not*
-  cover installing a package (its code runs at install/import regardless) or a
-  blessed package compromised at source — vet dependencies as ever. The 0.4.x
-  trust file, quarantine and `--prune` are gone; commit `.nexus-kit/` so it
-  travels with the repo. Adding a satellite means adding its name to the allowlist
-  and releasing the kernel — that release is the vouch.
-- **Editor-neutral, never writes your agent files.** `nexus-kit new` scaffolds a
-  single `AGENTS.md` (the standard convention, no Claude/editor specifics) that
-  mounts the map, plus a placeholder `.nexus-kit/map.md` so the mount is not
-  dangling before the first run; otherwise the command only prints the mount hint.
-- **`nexus-kit guides --check`** for CI: fails if `.nexus-kit/` is out of date,
-  writes nothing.
-- **One-shot migration**: `guides` removes the 0.4.x layout it finds (generated
-  `.ai/*.md`, `trusted-guides.txt`, `.nexus-kit-quarantine/`); your own
+- **The human stays in control; the atlas is a channel, not a filter.** A guide's
+  text lands in the agent verbatim through the map. So: nothing runs
+  `update-ai-guides` automatically, and no agent-read file (a guide, the map,
+  AGENTS.md) tells the agent to run it — the instructions the agent reads change
+  only when the human runs the command deliberately, and `.nexus-kit/` is committed
+  so the human reviews the diff first. The allowlist (`_ALLOWED_GUIDE_PACKAGES` in
+  the kernel) limits WHICH sources are read — an unrelated or rogue `nexus-kit-*`
+  package's guide is never assembled — but that is about sources, not safety:
+  installing any package already runs its code (build hooks/import), and any
+  allowlisted guide is injected as-is. Building the atlas never imports a package
+  (guide read as a file), and a RECORD path escaping the package tree is refused.
+  Not the 0.4.x per-app trust file + git-review, which was security theatre. Adding
+  a satellite means adding its name to the allowlist and releasing the kernel.
+- **Editor-neutral, never writes your agent files, never touches CLAUDE.md.**
+  `nexus-kit new` scaffolds a single `AGENTS.md` (the standard convention, no
+  Claude/editor specifics) that mounts the map, plus a placeholder
+  `.nexus-kit/map.md` so the mount is not dangling before the first run. The tool
+  reads AGENTS.md only (to report whether the map is mounted) and reads/writes
+  CLAUDE.md never.
+- **`nexus-kit update-ai-guides --check`** for CI: fails if `.nexus-kit/` is out of
+  date, writes nothing.
+- **One-shot migration**: `update-ai-guides` removes the 0.4.x layout it finds
+  (generated `.ai/*.md`, `trusted-guides.txt`, `.nexus-kit-quarantine/`); your own
   unstamped `.ai/` files are left alone. Update your mount from `.ai/` to
   `.nexus-kit/map.md`.
 - Removed the `--trust` and `--prune` flags (no longer meaningful).

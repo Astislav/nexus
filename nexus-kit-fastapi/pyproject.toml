@@ -25,8 +25,8 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
     # Floor is the kernel with the .nexus-kit atlas model, under which
-    # `nexus-kit guides` reads this package's guide (it is on the kernel's
-    # allowlist). Upper bound: 0.x minors may break (see the kernel's semver note).
+    # `nexus-kit update-ai-guides` reads this package's guide (it is on the
+    # kernel's allowlist). Upper bound: 0.x minors may break (kernel semver note).
     "nexus-kit>=0.5,<0.6",
     "fastapi>=0.115",
     "uvicorn>=0.30",
@@ -48,7 +48,7 @@ Changelog = "https://github.com/Astislav/nexus/blob/master/nexus-kit-fastapi/CHA
 packages = ["src/nexus_kit_fastapi"]
 
 [tool.hatch.build.targets.wheel.force-include]
-# The AI guide ships inside the wheel; `nexus-kit guides` reads it from the
-# installed package and writes it into the app's .nexus-kit/ atlas. This package
-# is on the kernel's allowlist (_ALLOWED_GUIDE_PACKAGES) — that is what admits it.
+# The AI guide ships inside the wheel; `nexus-kit update-ai-guides` reads it from
+# the installed package and writes it into the app's .nexus-kit/ atlas. This
+# package is on the kernel's allowlist (_ALLOWED_GUIDE_PACKAGES) — that admits it.
 ".ai/guide.md" = "nexus_kit_fastapi/.ai/guide.md"

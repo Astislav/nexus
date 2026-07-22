@@ -437,39 +437,45 @@ Domain logic, UI, data access — those belong in your app.
 
 The full framework guide ships inside the wheel:
 [`.ai/guide.md`](https://github.com/Astislav/nexus/blob/master/nexus-kit/.ai/guide.md)
-— API, conventions, lifecycle guarantees, what NOT to do. In a consumer app you
-don't read it from the repo; `nexus-kit guides` writes it into a local **atlas**
-(the `guides` command; `sync-ai` is kept as an alias):
-
-```bash
-uv run nexus-kit guides   # after adding, upgrading or removing any nexus-kit package
-```
-
-This reads the guide of each **allowlisted** nexus-kit package installed in the
-app's `.venv` and writes `.nexus-kit/`:
+— API, conventions, lifecycle guarantees, what NOT to do. In a consumer app it is
+not read from the repo; it lives in a local **atlas** under `.nexus-kit/`:
 
 - `.nexus-kit/map.md` — a small, always-on index: one line per package with a
   *read-this-when* cue and a pointer to its full guide.
 - `.nexus-kit/guides/<pkg>.md` — the full guide per package, read **on demand**.
 
 Mount only the map in your own AGENTS.md — a plain `Read .nexus-kit/map.md`
-instruction that works in any agent (it's the standard AGENTS.md convention, no
-editor lock-in). The agent opens a specific guide when relevant, so more
-satellites don't bloat the context — progressive disclosure, the same shape as
-Skills. `nexus-kit new` sets the mount up for fresh apps; the tooling **never**
-writes your agent files.
+instruction that works in any agent (the standard AGENTS.md convention, no editor
+lock-in). Progressive disclosure, the same shape as Skills: more satellites don't
+bloat the context. `nexus-kit new` sets the mount up for fresh apps.
 
-**The gate against a malicious guide is a hard allowlist in the kernel.** `guides`
-reads a guide **only** from packages whose dist name is in
-`_ALLOWED_GUIDE_PACKAGES` (the framework author's blessing, shipped in the kernel
-wheel) — so a rogue `nexus-kit-evil`, or any unrelated dependency, cannot get its
-text into your agent through the atlas (PyPI names are unique, so no one can
-publish under a blessed name). Building the atlas also **never imports** a package
-(the guide is read as a file), so no package code runs on `guides`. What this does
-*not* cover: installing any package already runs its code (build hooks, import) —
-that exposure is the package manager's, not the atlas's — so vet dependencies as
-ever. Commit `.nexus-kit/` so it travels with the repo; `uv run nexus-kit guides
---check` fails in CI if it is stale.
+## Keeping the AI guides current — and staying in control
+
+The atlas is (re)built by a command **you** run, deliberately:
+
+```bash
+uv run nexus-kit update-ai-guides   # after adding, upgrading or removing a nexus-kit package
+```
+
+It reads the guide of each allowlisted nexus-kit package installed in your
+`.venv` and rewrites `.nexus-kit/`. Why *you* run it, and why that matters:
+
+- **Nothing runs it automatically**, and nothing your agent reads — a guide, the
+  map, AGENTS.md — tells your agent to run it. So the set of instructions your
+  agent reads changes only when you decide. (The tooling never edits your
+  AGENTS.md, and never touches CLAUDE.md or any editor-specific file.)
+- **It's committed and diff-reviewable.** A guide's text lands in your agent
+  verbatim — the atlas is a delivery channel, not a filter. Because `.nexus-kit/`
+  is committed, you review the diff and see exactly what would reach your agent
+  (new guidance, or anything threatening) before it goes live.
+- **The allowlist limits which sources are read.** `update-ai-guides` reads a
+  guide only from packages whose dist name is in `_ALLOWED_GUIDE_PACKAGES` (baked
+  into the kernel), so an unrelated or rogue `nexus-kit-evil` package's guide is
+  never assembled. That is about *sources*, not safety — any allowlisted guide is
+  injected as-is, and installing any package already runs its code, so vet
+  dependencies like any code.
+- **CI**: `uv run nexus-kit update-ai-guides --check` fails if `.nexus-kit/` is
+  stale, without writing anything. (`guides` is a short alias for the command.)
 
 ## License
 

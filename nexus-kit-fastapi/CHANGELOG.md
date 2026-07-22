@@ -2,8 +2,8 @@
 
 ## [0.3.0] — 2026-07-22
 
-- On the kernel's guide allowlist (0.5+), so `nexus-kit guides` reads this
-  package's guide and writes it into the app's `.nexus-kit/` atlas, with a
+- On the kernel's guide allowlist (0.5+), so `nexus-kit update-ai-guides` reads
+  this package's guide and writes it into the app's `.nexus-kit/` atlas, with a
   `<!-- when: … -->` cue for the map. Requires **nexus-kit >= 0.5, < 0.6**. No
   change to `HttpService` / `Injected` runtime behaviour.
 
