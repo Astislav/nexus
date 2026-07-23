@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1] — 2026-07-23
+
+- **Dependency floor loosened to `nexus-kit >= 0.4.12, < 0.6`.** 0.3.0 required
+  `>= 0.5`, forcing a kernel upgrade even on runtime users who don't want the AI
+  guides. The runtime (`HttpService` / `Injected`) is unchanged and works on any
+  0.4.12+ kernel; the `.nexus-kit` atlas is an optional 0.5+ feature, not a runtime
+  dependency.
+
 ## [0.3.0] — 2026-07-22
 
 - On the kernel's guide allowlist (0.5+), so `nexus-kit update-ai-guides` reads

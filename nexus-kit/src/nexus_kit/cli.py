@@ -409,8 +409,11 @@ def _build(copy_env: bool) -> None:
 #   - Nothing runs this command automatically, and NO agent-read file (a guide, the
 #     map, AGENTS.md) tells the agent to run it — so the set of instructions the
 #     agent reads changes ONLY when the human runs `update-ai-guides` deliberately.
-#   - `.nexus-kit/` is committed, so the human reviews the diff and sees exactly
-#     what would reach the agent (new guidance, or anything threatening) first.
+#   - `.nexus-kit/` is committed, so the change lands in a reviewable diff (new
+#     guidance, or anything threatening). NOTE: the command writes the atlas in
+#     place, so nothing forces review BEFORE the agent next reads it — the guard is
+#     that the guides change only when the human runs the command, and the diff is
+#     there to inspect.
 #   - The allowlist (`_ALLOWED_GUIDE_PACKAGES`) limits WHICH sources are read: an
 #     unrelated or malicious `nexus-kit-*` package's guide is never assembled — but
 #     that is about sources, not safety, since any allowlisted guide is injected
@@ -487,23 +490,29 @@ def _discover_guides(search_path: list[str] | None) -> list[_Guide]:
     is the gate: nexus-kit only ever carries the guide text of packages its author
     blessed, so an unrelated or malicious `nexus-kit-*` package cannot get its text
     into an agent's context through the atlas. The guide is located via the
-    distribution's file list — we never import the package (no package code runs)."""
+    distribution's file list — we never import the package (no package code runs) —
+    and is read only if it resolves INSIDE the distribution's own directory, so a
+    RECORD entry using `..`, an absolute path, or a symlink cannot make us read a
+    file elsewhere on disk."""
     guides: list[_Guide] = []
     for dist in _distributions(search_path):
         name = dist.metadata["Name"]
         if _normalize(name) not in _ALLOWED_GUIDE_PACKAGES:
             continue  # not author-blessed — its guide is never read
+        try:
+            root = Path(str(dist.locate_file(""))).resolve()
+        except Exception:
+            continue
         text = None
         for file in dist.files or []:
-            if ".." in file.parts:
-                continue  # never follow a RECORD path outside the package's own tree
-            if file.parts[-2:] == (".ai", "guide.md"):
-                located = Path(str(file.locate()))
-                if located.is_file():
-                    text = located.read_text(encoding="utf-8")
-                break
+            if file.parts[-2:] != (".ai", "guide.md"):
+                continue
+            located = Path(str(file.locate())).resolve()
+            if located.is_relative_to(root) and located.is_file():
+                text = located.read_text(encoding="utf-8")
+            break  # first .ai/guide.md entry decides — inside the tree or not at all
         if text is None:
-            continue  # allowlisted but ships no guide
+            continue  # allowlisted but ships no guide (or its guide escaped the tree)
         summary = (dist.metadata.get("Summary") or "").strip()
         guides.append(_Guide(name, dist.version, summary, text))
     # kernel first, then alphabetical
@@ -556,19 +565,27 @@ def _mount_status() -> str | None:
 
 
 def _migrate_legacy_layout() -> None:
-    """Remove the 0.4.x layout (copied guides + trust file + quarantine) that the
-    .nexus-kit atlas replaces. Only our own generated artifacts are touched."""
+    """Retire the 0.4.x layout the .nexus-kit atlas replaces. We only ever delete
+    OUR OWN generated artifacts (stamped guides, the trust file, the quarantine,
+    the *.md.untrusted quarantine copies). User content is never deleted: *.md.orig
+    backups (the user's pre-migration edits that 0.4.12 saved) are kept, and an old
+    unstamped `.ai/*.md` is left in place with a warning."""
     removed: list[str] = []
+    unstamped: list[str] = []
+    kept_orig = False
     ai = Path(".ai")
     if ai.is_dir():
         for md in sorted(ai.glob("*.md")):
             head = md.read_text(encoding="utf-8", errors="ignore").split("\n", 1)[0]
             if head.startswith("<!-- nexus-kit sync-ai:"):
-                md.unlink()
+                md.unlink()  # our own stamped 0.4.10+ generated copy
                 removed.append(str(md))
-        for extra in sorted(ai.glob("*.md.untrusted")) + sorted(ai.glob("*.md.orig")):
-            extra.unlink()
+            else:
+                unstamped.append(str(md))  # 0.4.0–0.4.9 or user-authored — never delete
+        for extra in sorted(ai.glob("*.md.untrusted")):
+            extra.unlink()  # our own 0.4.13 quarantine copy
             removed.append(str(extra))
+        kept_orig = bool(list(ai.glob("*.md.orig")))  # user's pre-migration edits — keep
         trust = ai / "trusted-guides.txt"
         if trust.exists():
             trust.unlink()
@@ -579,11 +596,19 @@ def _migrate_legacy_layout() -> None:
 
         shutil.rmtree(quarantine)
         removed.append(f"{quarantine}/")
+
     if removed:
-        print("  migrated from the 0.4.x layout — removed:")
+        print("  migrated from the 0.4.x layout — removed our generated artifacts:")
         for item in removed:
             print(f"    {item}")
-        print("  if your AGENTS.md still points at .ai/, change the mount to .nexus-kit/map.md")
+    if kept_orig:
+        print("  kept your .ai/*.md.orig files (your pre-migration edits) — review/remove by hand")
+    if unstamped:
+        print("  found old unstamped guides — NOT removed (they may be your edits); review by hand:")
+        for item in unstamped:
+            print(f"    {item}")
+    if removed or unstamped:
+        print("  if your AGENTS.md/CLAUDE.md still points at .ai/, change the mount to .nexus-kit/map.md")
 
 
 def _write_atlas(desired: dict[Path, str]) -> None:
@@ -674,7 +699,8 @@ def _print_intro() -> None:
     print("`nexus-kit update-ai-guides` collects the ones installed in your project into")
     print(".nexus-kit/ (a small map + one guide per package). YOU run it, deliberately, after")
     print("adding/upgrading/removing a nexus-kit package; nothing runs it for you. The atlas is")
-    print("committed, so you review what changed in the diff before it reaches your agent.")
+    print("committed, so the change lands in a diff you can review (it writes in place, so nothing")
+    print("forces review first — but the guides change only when you run this).")
     print("")
     print("Docs: https://github.com/Astislav/nexus")
 

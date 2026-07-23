@@ -3,6 +3,29 @@
 All notable changes to nexus-kit. Versioning: [semver](https://semver.org/) —
 in 0.x, breaking changes bump the minor version.
 
+## [0.5.1] — 2026-07-23
+
+External review of 0.5.0; every finding reproduced against the code before fixing.
+**0.5.0 is yanked** — its migration deleted user files (see below); 0.5.1 is the
+safe successor.
+
+- **Migration no longer deletes your `.ai/*.md.orig` backups (data loss).** 0.5.0's
+  one-shot migration unlinked `*.md.orig` — the very files 0.4.12 saved your
+  pre-overwrite edits into. `update-ai-guides` now keeps them (and says so); it only
+  ever removes its OWN generated artifacts (stamped guides, `trusted-guides.txt`,
+  the quarantine, `*.md.untrusted`).
+- **Old unstamped `.ai/*.md` guides are warned about, never deleted.** A pre-0.4.10
+  `.ai/nexus-kit.md` (or any file you authored) is left in place with a note to
+  review it by hand and move your mount to `.nexus-kit/map.md`.
+- **RECORD path-escape guard completed.** Discovery guarded only `..`; an absolute
+  path (or a symlink) in a package's RECORD ending `.ai/guide.md` could point
+  outside the package. A guide is now read only if it resolves inside the
+  distribution's own directory. (Risk was bounded by the allowlist, but the claim
+  was false.)
+- **Honest wording on diff review.** Dropped "review the diff before it reaches your
+  agent" — the command writes the atlas in place, so nothing forces review first;
+  the real guard is that the guides change only when you run the command.
+
 ## [0.5.0] — 2026-07-22
 
 **Breaking: the AI-guide delivery is redesigned.** The 0.4.x model — copy each
@@ -25,7 +48,8 @@ replaced by a committed atlas gated by an author-controlled allowlist in core.
   `update-ai-guides` automatically, and no agent-read file (a guide, the map,
   AGENTS.md) tells the agent to run it — the instructions the agent reads change
   only when the human runs the command deliberately, and `.nexus-kit/` is committed
-  so the human reviews the diff first. The allowlist (`_ALLOWED_GUIDE_PACKAGES` in
+  so every change lands in a reviewable diff (it writes in place — nothing forces
+  review before the agent next reads it). The allowlist (`_ALLOWED_GUIDE_PACKAGES` in
   the kernel) limits WHICH sources are read — an unrelated or rogue `nexus-kit-*`
   package's guide is never assembled — but that is about sources, not safety:
   installing any package already runs its code (build hooks/import), and any

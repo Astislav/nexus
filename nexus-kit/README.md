@@ -466,8 +466,10 @@ It reads the guide of each allowlisted nexus-kit package installed in your
   AGENTS.md, and never touches CLAUDE.md or any editor-specific file.)
 - **It's committed and diff-reviewable.** A guide's text lands in your agent
   verbatim — the atlas is a delivery channel, not a filter. Because `.nexus-kit/`
-  is committed, you review the diff and see exactly what would reach your agent
-  (new guidance, or anything threatening) before it goes live.
+  is committed, every change lands in a diff you can review (new guidance, or
+  anything threatening). The command writes the atlas in place, so nothing forces
+  review before your agent next reads it — the guard is that it changes only when
+  you run the command.
 - **The allowlist limits which sources are read.** `update-ai-guides` reads a
   guide only from packages whose dist name is in `_ALLOWED_GUIDE_PACKAGES` (baked
   into the kernel), so an unrelated or rogue `nexus-kit-evil` package's guide is

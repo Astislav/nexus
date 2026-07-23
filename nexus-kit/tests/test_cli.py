@@ -307,26 +307,63 @@ def test_sync_ai_reports_when_the_map_is_mounted(tmp_path, monkeypatch, capsys):
     assert "mounted via AGENTS.md" in capsys.readouterr().out
 
 
-def test_sync_ai_migrates_the_0_4_layout(tmp_path, monkeypatch):
+def test_sync_ai_migrates_the_0_4_layout(tmp_path, monkeypatch, capsys):
     proj = scaffold(tmp_path, monkeypatch, "migrated")
     site = app_venv_site(proj)
     write_fake_dist(site, "nexus-kit", "0.5.0", "# k\n")
     ai = proj / ".ai"
     ai.mkdir()
-    (ai / "nexus-kit.md").write_text("<!-- nexus-kit sync-ai: nexus-kit 0.4.14 — generated -->\nold\n", encoding="utf-8")
+    # our own generated artifacts -> removed
+    (ai / "nexus-kit-fastapi.md").write_text(
+        "<!-- nexus-kit sync-ai: nexus-kit-fastapi 0.2.5 — generated -->\nold\n", encoding="utf-8")
+    (ai / "old.md.untrusted").write_text("<!-- retired -->\nq\n", encoding="utf-8")
     (ai / "trusted-guides.txt").write_text("nexus-kit-fastapi\n", encoding="utf-8")
-    (ai / "notes.md").write_text("my own notes\n", encoding="utf-8")  # unstamped, user-owned
     quar = proj / ".nexus-kit-quarantine"
     quar.mkdir()
     (quar / "x.md").write_text("q\n", encoding="utf-8")
+    # USER content -> must never be deleted
+    (ai / "nexus-kit.md").write_text("# nexus-kit — quick reference\nold unstamped\n", encoding="utf-8")
+    (ai / "nexus-kit.md.orig").write_text("my pre-migration edits\n", encoding="utf-8")
+
+    sync_ai(proj, monkeypatch)
+    out = capsys.readouterr().out
+
+    assert not (ai / "nexus-kit-fastapi.md").exists()     # our stamped copy removed
+    assert not (ai / "old.md.untrusted").exists()         # our quarantine copy removed
+    assert not (ai / "trusted-guides.txt").exists()       # trust file gone
+    assert not quar.exists()                              # quarantine store gone
+    # data preserved:
+    assert (ai / "nexus-kit.md.orig").read_text(encoding="utf-8") == "my pre-migration edits\n"
+    assert (ai / "nexus-kit.md").read_text(encoding="utf-8") == "# nexus-kit — quick reference\nold unstamped\n"
+    assert "kept your .ai/*.md.orig" in out               # told the backups were kept
+    assert "unstamped guides" in out                      # warned about the old file, did not delete it
+    assert (proj / ".nexus-kit" / "map.md").exists()      # the new atlas is built
+
+
+def test_sync_ai_refuses_a_guide_symlinked_outside_the_package(tmp_path, monkeypatch):
+    """RECORD guard: a `.ai/guide.md` entry with no `..` still must not be read if
+    it resolves (via symlink, absolute path, ...) outside the distribution tree."""
+    proj = scaffold(tmp_path, monkeypatch, "escape")
+    site = app_venv_site(proj)
+    secret = tmp_path / "secret.md"
+    secret.write_text("SENSITIVE OUTSIDE FILE\n", encoding="utf-8")
+    pkg_ai = site / "nexus_kit" / ".ai"
+    pkg_ai.mkdir(parents=True)
+    try:
+        (pkg_ai / "guide.md").symlink_to(secret)  # looks in-tree, resolves outside
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not creatable on this platform")
+    dist_info = site / "nexus_kit-0.5.0.dist-info"
+    dist_info.mkdir(parents=True)
+    (dist_info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: nexus-kit\nVersion: 0.5.0\nSummary: k\n", encoding="utf-8")
+    (dist_info / "RECORD").write_text(
+        "nexus_kit/.ai/guide.md,,\nnexus_kit-0.5.0.dist-info/METADATA,,\n", encoding="utf-8")
 
     sync_ai(proj, monkeypatch)
 
-    assert not (ai / "nexus-kit.md").exists()             # our old generated copy removed
-    assert not (ai / "trusted-guides.txt").exists()       # trust file gone
-    assert not quar.exists()                              # quarantine store gone
-    assert (ai / "notes.md").read_text(encoding="utf-8") == "my own notes\n"  # user file untouched
-    assert (proj / ".nexus-kit" / "map.md").exists()      # the new atlas is built
+    kernel = proj / ".nexus-kit" / "guides" / "nexus-kit.md"
+    assert not kernel.exists() or "SENSITIVE" not in kernel.read_text(encoding="utf-8")
 
 
 def test_sync_ai_map_carries_the_when_hint_from_a_guide(tmp_path, monkeypatch):

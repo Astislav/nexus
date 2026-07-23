@@ -155,10 +155,11 @@ any CLAUDE.md.
 run `nexus-kit update-ai-guides` — deliberately, yourself. Nothing runs it for
 you, and no guide, map or agent-read file ever tells your assistant to run it, so
 the instructions your agent reads change only when *you* decide. `.nexus-kit/` is
-committed, so you review the diff and see exactly what would reach your agent —
-new guidance, or anything that looks off — before it goes live. No illusion sold:
-a guide's text lands in your agent verbatim; the atlas is a delivery channel, not
-a filter. It gives you control of *when* and a diff to *review*, not immunity.
+committed, so every change lands in a diff you can review — new guidance, or
+anything that looks off. No illusion sold: the command writes the atlas in place
+(nothing forces you to review before your agent next reads it), and a guide's text
+lands in your agent verbatim — the atlas is a delivery channel, not a filter. It
+gives you control of *when* and a diff to *review*, not immunity.
 Frameworks used to be documented for humans; this one is documented for the pair
 of you.
 
